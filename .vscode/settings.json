@@ -1,5 +1,6 @@
 {
     "files.associations": {
-        "hal.h": "c"
+        "hal.h": "c",
+        "peripheral.h": "c"
     }
 }
