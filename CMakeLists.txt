@@ -44,7 +44,7 @@ add_link_options(
 add_link_options(-T ${CMAKE_SOURCE_DIR}/link.ld)
 
 # 设置项目名称
-project(ch57x_template LANGUAGES C CXX ASM)
+project(DFU_OTA LANGUAGES C CXX ASM)
 
 # 编译目标设置
 file(TO_CMAKE_PATH "$ENV{CH57X_DEPENDENCY}" DEPENDENCY)
