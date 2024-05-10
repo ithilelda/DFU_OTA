@@ -18,7 +18,7 @@ int main()
     GPIOB_ModeCfg(GPIO_Pin_7, GPIO_ModeOut_PP_20mA);
     CH57X_BLEInit();
     HAL_Init();
-    IAP_Init();
+    OTA_Init();
     while(1)
     {
         TMOS_SystemProcess();

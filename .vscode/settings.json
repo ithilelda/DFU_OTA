@@ -1,6 +1,9 @@
 {
     "files.associations": {
         "hal.h": "c",
-        "peripheral.h": "c"
+        "peripheral.h": "c",
+        "config.h": "c",
+        "sleep.h": "c",
+        "rtc.h": "c"
     }
 }

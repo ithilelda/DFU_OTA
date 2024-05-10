@@ -73,8 +73,8 @@ target_sources(${PROJECT_NAME}.elf PRIVATE
 target_link_libraries(${PROJECT_NAME}.elf ISP573 CH57xBLE)
 
 # 用户宏定义
-add_definitions(-DCH57xBLE_ROM=1)
-
+add_definitions(-DCH57xBLE_ROM=1) # BLE库分开编译
+add_definitions(-DBLE_BUFF_MAX_LEN=251) # 设置MTU最大值
 
 #后处理文件设置
 set(HEX_FILE ${PROJECT_BINARY_DIR}/${PROJECT_NAME}.hex)

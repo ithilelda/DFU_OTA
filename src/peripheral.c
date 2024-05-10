@@ -13,6 +13,7 @@
 
 // Local variable definitions.
 static uint8_t Main_TaskID;
+static BOOL Conn_Established = FALSE;
 static uint8_t advertData[31] = {
    // Flags; this sets the device to use limited discoverable mode (advertises indefinitely)
    0x02, // length of this data
@@ -25,9 +26,9 @@ static uint8_t advertData[31] = {
    'D','F','U','_','O','T','A',
 
    // service uuid lists. usually, 16-bits uuids are reserved, so we use a 128-bits custom one. It is nicer to indicate here.
-   0x11,
-   GAP_ADTYPE_128BIT_MORE,
-   CONSTRUCT_OTA_UUID(OTAPROFILE_SERVICE_UUID, OTAPROFILE_OTA_SERV_UUID)
+   0x3,
+   GAP_ADTYPE_16BIT_MORE,
+   LO_UINT16(OTAPROFILE_OTA_SERV_UUID), HI_UINT16(OTAPROFILE_OTA_SERV_UUID)
 };
 static uint8_t scanRspData[31] = {
     // complete name
@@ -48,9 +49,14 @@ static uint8_t scanRspData[31] = {
     0 // 0dBm
 };
 static uint8_t attDeviceName[GAP_DEVICE_NAME_LEN] = "DFU_OTA";
-static void IAP_GAPStateNotificationCB(gapRole_States_t newState, gapRoleEvent_t *pEvent);
-static gapRolesCBs_t IAP_GAPRoleCBs = {IAP_GAPStateNotificationCB, NULL, NULL};
-static gapBondCBs_t IAP_BondMgrCBs = {NULL,NULL};
+static void OTA_GAPStateNotificationCB(gapRole_States_t newState, gapRoleEvent_t *pEvent);
+static gapRolesCBs_t OTA_GAPRoleCBs = {OTA_GAPStateNotificationCB, NULL, NULL};
+static gapBondCBs_t OTA_BondMgrCBs = {NULL,NULL};
+static void OTA_CtrlPointSelectTask(uint16_t connHandle, uint16_t attrHandle, uint8_t* pValue, uint8_t len);
+static OTA_CtrlPointRspTasks_t OTA_RspTasks = {NULL, OTA_CtrlPointSelectTask, NULL};
+static attHandleValueNoti_t notification;
+static uint16_t writeRsp_connHandle;
+
 static uint8_t advertising_enabled = TRUE;
 static uint8_t advertising_event_type = GAP_ADTYPE_ADV_IND;
 static uint16_t desired_min_interval = DEFAULT_DESIRED_MIN_CONN_INTERVAL;
@@ -65,7 +71,7 @@ static uint16_t desired_max_interval = DEFAULT_DESIRED_MAX_CONN_INTERVAL;
  *
  * @return  none
  */
-void IAP_Init()
+void OTA_Init()
 {
     GAPRole_PeripheralInit();
     Main_TaskID = TMOS_ProcessEventRegister(Main_Task_ProcessEvent);
@@ -87,53 +93,43 @@ void IAP_Init()
     GATTServApp_AddService(GATT_ALL_SERVICES); // GATT attributes
 
     OTAProfile_AddService(GATT_ALL_SERVICES);
+    OTAProfile_RegisterWriteRspTasks(&OTA_RspTasks);
 
-    // start the device with callback that does nothing.
-    GAPRole_PeripheralStartDevice(Main_TaskID, &IAP_BondMgrCBs, &IAP_GAPRoleCBs);
-
-    // we need to setup a stop trigger after the set up time MAIN_TASK_ADV_LENGTH.
-    tmos_start_task(Main_TaskID, MAIN_TASK_SLEEP_EVENT, MAIN_TASK_ADV_LENGTH);
-    GPIOB_ResetBits(GPIO_Pin_7);
+    // start TMOS with the init event.
+    tmos_set_event(Main_TaskID, MAIN_TASK_INIT_EVENT);
 }
 
 uint16_t Main_Task_ProcessEvent(uint8_t task_id, uint16_t events)
 {
-    if (events & MAIN_TASK_SLEEP_EVENT)
+    if (events & MAIN_TASK_INIT_EVENT)
     {
-        // setting up wakeup event.
-        tmos_start_task(Main_TaskID, MAIN_TASK_WAKEUP_EVENT, MAIN_TASK_SLEEP_LENGTH);
-        GPIOB_SetBits(GPIO_Pin_7);
-        // turn off advertising.
-        advertising_enabled = FALSE;
-        GAPRole_SetParameter(GAPROLE_ADVERT_ENABLED, sizeof(uint8_t), &advertising_enabled);
-        // clear event bit.
-        return events ^ MAIN_TASK_SLEEP_EVENT;
+        // start the device as a peripheral.
+        GAPRole_PeripheralStartDevice(Main_TaskID, &OTA_BondMgrCBs, &OTA_GAPRoleCBs);
+        // setup a timeout to reset the device because we are limited discoverable.
+        tmos_start_task(Main_TaskID, MAIN_TASK_TIMEOUT_EVENT, MAIN_TASK_ADV_TIMEOUT);
+        return events ^ MAIN_TASK_INIT_EVENT;
     }
-    // setup TMR1 and start counting.
-    if (events & MAIN_TASK_COUNT_EVENT)
+    if (events & MAIN_TASK_TIMEOUT_EVENT)
     {
-        // we count the cycles for 500ms.
-        tmos_start_task(Main_TaskID, MAIN_TASK_WAKEUP_EVENT, 800);
-        // turn off advertising.
-        advertising_enabled = FALSE;
-        GAPRole_SetParameter(GAPROLE_ADVERT_ENABLED, sizeof(uint8_t), &advertising_enabled);
-        GPIOB_ResetBits(GPIO_Pin_7); // turn on the switch and start the comparator circuit.
-        // clear event bit.
-        return events ^ MAIN_TASK_COUNT_EVENT;
+        // after timeout occurs and there is no connection, put the device into shutdown, you must disconnect and reconnect power to startup again.
+        if (!Conn_Established)
+        {
+            GPIOB_SetBits(GPIO_Pin_7);
+            LowPower_Shutdown(0);
+        }
+        return events ^ MAIN_TASK_TIMEOUT_EVENT;
     }
-    // wakeup and start advertising packet.
-    if (events & MAIN_TASK_WAKEUP_EVENT)
+    if (events & MAIN_TASK_WRITERSP_EVENT)
     {
-        // we need to stop the advertising after the MAIN_TASK_ADV_LENGTH time.
-        tmos_start_task(Main_TaskID, MAIN_TASK_SLEEP_EVENT, MAIN_TASK_ADV_LENGTH);
         GPIOB_ResetBits(GPIO_Pin_7);
-        // turn on advertising.
-        advertising_enabled = TRUE;
-        GAPRole_SetParameter(GAPROLE_ADVERT_ENABLED, sizeof(uint8_t), &advertising_enabled);
-        // clear event bit.
-        return events ^ MAIN_TASK_WAKEUP_EVENT;
+        // when we have a hanging write response waiting to be notified, we dispatch the notification here.
+        if(writeRsp_connHandle && GATT_Notification(writeRsp_connHandle, &notification, FALSE) != SUCCESS)
+        {
+            GPIOB_SetBits(GPIO_Pin_7);
+            GATT_bm_free((gattMsg_t *)&notification, ATT_WRITE_RSP);
+        }
+        return events ^ MAIN_TASK_WRITERSP_EVENT;
     }
-
     // fail proof route. Does nothing when the event is unknown.
     return 0;
 }
@@ -147,7 +143,7 @@ uint16_t Main_Task_ProcessEvent(uint8_t task_id, uint16_t events)
  *
  * @return  none
  */
-static void IAP_GAPStateNotificationCB(gapRole_States_t newState, gapRoleEvent_t *pEvent)
+static void OTA_GAPStateNotificationCB(gapRole_States_t newState, gapRoleEvent_t *pEvent)
 {
     switch(newState)
     {
@@ -155,15 +151,54 @@ static void IAP_GAPStateNotificationCB(gapRole_States_t newState, gapRoleEvent_t
             break;
 
         case GAPROLE_ADVERTISING:
+            if(pEvent->gap.opcode == GAP_LINK_TERMINATED_EVENT)
+            {
+                Conn_Established = FALSE;
+                GPIOB_SetBits(GPIO_Pin_7);
+                LowPower_Shutdown(0);
+            }
+            else
+            {
+                GPIOB_ResetBits(GPIO_Pin_7);
+            }
             break;
 
         case GAPROLE_WAITING:
+            if(pEvent->gap.opcode == GAP_LINK_TERMINATED_EVENT)
+            {
+                Conn_Established = FALSE;
+                GPIOB_SetBits(GPIO_Pin_7);
+                LowPower_Shutdown(0);
+            }
+            else
+            {
+                GPIOB_SetBits(GPIO_Pin_7);
+            }
             break;
 
         case GAPROLE_ERROR:
             break;
 
+        case GAPROLE_CONNECTED:
+            GPIOB_SetBits(GPIO_Pin_7);
+            Conn_Established = TRUE; // once connected, we raise the connected flag.
+            break;
+
         default:
             break;
+    }
+}
+
+static void OTA_CtrlPointSelectTask(uint16_t connHandle, uint16_t attrHandle, uint8_t* pValue, uint8_t len)
+{
+    GATT_bm_free((gattMsg_t*)pValue, ATT_WRITE_RSP);
+    writeRsp_connHandle = connHandle;
+    notification.handle = attrHandle;
+    notification.len = len;
+    notification.pValue = GATT_bm_alloc(connHandle, ATT_WRITE_RSP, notification.len, NULL, 0);
+    if (notification.pValue)
+    {
+        tmos_memcpy(notification.pValue, pValue, len);
+        tmos_start_task(Main_TaskID, MAIN_TASK_WRITERSP_EVENT, 80);
     }
 }

@@ -4,21 +4,19 @@
 
 // -- Defines -- //
 // Main Task Events.
-#define MAIN_TASK_INIT_EVENT 0x0001
-#define MAIN_TASK_SLEEP_EVENT 0x0002
-#define MAIN_TASK_WAKEUP_EVENT 0x0004
-#define MAIN_TASK_COUNT_EVENT 0x0008
+#define MAIN_TASK_INIT_EVENT 0x01
+#define MAIN_TASK_TIMEOUT_EVENT 0x02
+#define MAIN_TASK_WRITERSP_EVENT 0x04
 
 // ADV parameters.
-#define DEFAULT_ADVERTISING_INTERVAL    160 // in multiples of 625us. 160 * 625us = 100ms.
+#define DEFAULT_ADVERTISING_INTERVAL    80 // in multiples of 625us.
 
 // TASK intervals.
-#define MAIN_TASK_ADV_LENGTH 8000 // also in multiples of 625us. 1600 is 1 second.
-#define MAIN_TASK_SLEEP_LENGTH 8000 // also in multiples of 625us. 1600 is 1 second.
+#define MAIN_TASK_ADV_TIMEOUT 48000 // also in multiples of 625us. 1600 is 1 second, 4800 is 30 secs.
 
 // connection parameters.
-// Minimum connection interval (units of 1.25ms, 6=7.5ms) if automatic parameter update request is enabled
-#define DEFAULT_DESIRED_MIN_CONN_INTERVAL    6
+// Minimum connection interval (units of 1.25ms, 2=2.5ms) if automatic parameter update request is enabled
+#define DEFAULT_DESIRED_MIN_CONN_INTERVAL    2
 // Maximum connection interval (units of 1.25ms, 12=15ms) if automatic parameter update request is enabled
 #define DEFAULT_DESIRED_MAX_CONN_INTERVAL    12
 // Slave latency to use if automatic parameter update request is enabled
@@ -32,7 +30,7 @@
 
 
 // -- Function Declarations -- //
-void IAP_Init();
+void OTA_Init();
 uint16_t Main_Task_ProcessEvent(uint8_t task_id, uint16_t events);
 
 
