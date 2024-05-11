@@ -236,7 +236,7 @@ static void OTA_CtrlPointCB(uint16_t connHandle, uint16_t attrHandle, uint8_t* p
             break;
     }
     OTAProfile_SetupCtrlPointRsp(connHandle, attrHandle, opcode, &rsp, rspCode);
-    tmos_start_task(Main_TaskID, MAIN_TASK_WRITERSP_EVENT, 2);
+    tmos_set_event(Main_TaskID, MAIN_TASK_WRITERSP_EVENT);
 }
 
 static void OTA_PacketCB(uint16_t connHandle, uint16_t attrHandle, uint8_t* pValue, uint16_t len)
