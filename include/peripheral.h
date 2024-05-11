@@ -3,10 +3,30 @@
 
 
 // -- Defines -- //
+// Chip info.
+#define VARIANT_CH571                0x00000000 // ch571 all has only one variant.
+#define VARIANT_CH573Q               0x00000000 // ch573Q has only 256K ROM.
+#define VARIANT_CH573F               0x00000001 // ch573F and others have 512K ROM.
+
+#define CH571_ROM_SIZE               0x00030000 // 192K
+#define CH573_ROM_SIZE               0x00070000 // 448K
+#define CH57x_RAM_SIZE               0x00003800 // 14K because we have to subtract BLE_LIB's 4K.
+
+// bootloader info.
+#ifndef BOOTLOADER_VERSION
+#define BOOTLOADER_VERSION           0x00000001
+#endif
+#define BOOTLOADER_START_ADDR        0x00000000
+#define BOOTLOADER_MAX_SIZE          0x00004000
+
+// application info.
+#define APPLICATION_START_ADDR       0x00004000
+#define APPLICATION_MAX_SIZE         0x0000C000
+
 // Main Task Events.
-#define MAIN_TASK_INIT_EVENT 0x01
-#define MAIN_TASK_TIMEOUT_EVENT 0x02
-#define MAIN_TASK_WRITERSP_EVENT 0x04
+#define MAIN_TASK_INIT_EVENT         0x01
+#define MAIN_TASK_TIMEOUT_EVENT      0x02
+#define MAIN_TASK_WRITERSP_EVENT     0x04
 
 // ADV parameters.
 #define DEFAULT_ADVERTISING_INTERVAL    80 // in multiples of 625us.
@@ -21,8 +41,8 @@
 #define DEFAULT_DESIRED_MAX_CONN_INTERVAL    12
 // Slave latency to use if automatic parameter update request is enabled
 #define DEFAULT_DESIRED_SLAVE_LATENCY        0
-// Supervision timeout value (units of 10ms, 1000=10s) if automatic parameter update request is enabled
-#define DEFAULT_DESIRED_CONN_TIMEOUT         1000
+// Supervision timeout value (units of 10ms, 500=5s) if automatic parameter update request is enabled
+#define DEFAULT_DESIRED_CONN_TIMEOUT         500
 // Whether to enable automatic parameter update request when a connection is formed
 #define DEFAULT_ENABLE_UPDATE_REQUEST        TRUE
 // Connection Pause Peripheral time value (in seconds)
@@ -32,7 +52,6 @@
 // -- Function Declarations -- //
 void OTA_Init();
 uint16_t Main_Task_ProcessEvent(uint8_t task_id, uint16_t events);
-uint32_t calculate_CRC32 (void *pStart, uint32_t uSize);
 
 
 #endif /* SRC_PERIPHERAL_H_ */

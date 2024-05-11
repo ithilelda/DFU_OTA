@@ -13,7 +13,7 @@
 
 #define CTRL_POINT_BUFFER_SIZE              8
 #define OTAPROFILE_OTA_SERVICE              0x01
-#define OTAPROFILE_OTA_PROTOCOL_VER         0x01
+#define OTAPROFILE_OTA_PROTOCOL_VER         0x00
 
 /*********************************************************************
  * Service UUIDs.
@@ -57,6 +57,12 @@
 #define OTA_RSP_OP_FAILED                            0x0A
 #define OTA_RSP_EXT_ERROR                            0x0B
 /*********************************************************************
+ * Control Point Object Type.
+ */
+#define OTA_CONTROL_POINT_OBJ_TYPE_INVALID           0x00
+#define OTA_CONTROL_POINT_OBJ_TYPE_CMD               0x01
+#define OTA_CONTROL_POINT_OBJ_TYPE_DATA              0x02
+/*********************************************************************
  * Firmware types definition.
  */
 #define OTA_FW_TYPE_BLE_LIB                          0x00
@@ -72,6 +78,12 @@
 typedef uint8_t OtaRspCode_t;
 typedef struct
 {
+    uint32_t rom_size;
+    uint32_t ram_size;
+    uint32_t rom_page_size;
+} OTA_HW_Memory_t;
+typedef struct
+{
     uint8_t version;
 } OTA_CtrlPointRsp_Version_t;
 typedef struct
@@ -81,9 +93,9 @@ typedef struct
 } OTA_CtrlPointRsp_CRC_t;
 typedef struct
 {
+    uint32_t max_size;
     uint32_t offset;
     uint32_t crc;
-    uint32_t max_size;
 } OTA_CtrlPointRsp_Select_t;
 typedef struct
 {
@@ -91,19 +103,17 @@ typedef struct
 } OTA_CtrlPointRsp_MTU_t;
 typedef struct
 {
-    uint32_t offset;
-    uint32_t crc;
-} OTA_CtrlPointRsp_Write_t;
-typedef struct
-{
     uint8_t id;
 } OTA_CtrlPointRsp_Ping_t;
 typedef struct
 {
-    uint8_t id;
+    uint32_t part;
+    uint32_t variant;
+    OTA_HW_Memory_t memory;
 } OTA_CtrlPointRsp_Hardware_t;
 typedef struct
 {
+    uint8_t padding[3]; // alignment problem.
     uint8_t type;
     uint32_t version;
     uint32_t addr;
@@ -116,7 +126,6 @@ typedef union
     OTA_CtrlPointRsp_CRC_t crc;
     OTA_CtrlPointRsp_Select_t select;
     OTA_CtrlPointRsp_MTU_t mtu;
-    OTA_CtrlPointRsp_Write_t write;
     OTA_CtrlPointRsp_Ping_t ping;
     OTA_CtrlPointRsp_Hardware_t hardware;
     OTA_CtrlPointRsp_Firmware_t firmware;
@@ -137,6 +146,6 @@ typedef struct
 bStatus_t OTAProfile_AddService(uint32_t services);
 void OTAProfile_RegisterWriteCharCBs(OTA_WriteCharCBs_t* cbs);
 void OTAProfile_SetupCtrlPointRsp(uint16_t connHandle, uint16_t attrHandle, uint8_t opcode, OTA_CtrlPointRsp_t* rsp, OtaRspCode_t rspCode);
-bStatus_t OTAProfile_CtrlPointDispatchRsp();
+bStatus_t OTAProfile_DispatchCtrlPointRsp();
 
 #endif /* SRC_OTA_PROFILE_H_ */

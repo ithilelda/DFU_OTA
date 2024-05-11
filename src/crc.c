@@ -1,4 +1,4 @@
-#include "config.h"
+#include "crc.h"
 
 static const uint32_t CRC32_Table[256] =
 {
@@ -68,23 +68,25 @@ static const uint32_t CRC32_Table[256] =
    0xB40BBE37, 0xC30C8EA1, 0x5A05DF1B, 0x2D02EF8D
 };
 
-uint32_t calculate_CRC32 (void *pStart, uint32_t uSize)
+// this returns a non-xored value so that you can incrementally calculate the CRC.
+uint32_t update_CRC32 (uint32_t crc32, void *pStart, uint32_t uSize)
 {
-#define INIT  0xffffffff
-#define XOROT 0xffffffff
-
-  uint32_t uCRCValue;
-  uint8_t *pData;
-
-  /* init the start value */
-  uCRCValue = INIT;
-  pData = pStart;
+  uint8_t *pData = pStart;
 
   /* calculate CRC */
   while (uSize --)
   {
-    uCRCValue = CRC32_Table[(uCRCValue ^ *pData++) & 0xFF] ^ (uCRCValue >> 8);
+    crc32 = CRC32_Table[(crc32 ^ *pData++) & 0xFF] ^ (crc32 >> 8);
   }
-  /* XOR the output value */
-  return uCRCValue ^ XOROT;
+  return crc32;
+}
+
+uint32_t calculate_CRC32 (void *pStart, uint32_t uSize)
+{
+  return update_CRC32 (CRC_INITIAL_VALUE, pStart, uSize) ^ CRC_XOROT;
+}
+
+uint32_t get_CRC32(uint32_t crc32)
+{
+  return crc32 ^ CRC_XOROT;
 }
