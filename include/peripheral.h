@@ -32,6 +32,7 @@
 // -- Function Declarations -- //
 void OTA_Init();
 uint16_t Main_Task_ProcessEvent(uint8_t task_id, uint16_t events);
+uint32_t calculate_CRC32 (void *pStart, uint32_t uSize);
 
 
 #endif /* SRC_PERIPHERAL_H_ */

@@ -204,6 +204,10 @@ static OtaRspCode_t OTA_CtrlPointCB(uint16_t connHandle, uint16_t attrHandle, ui
             status = OTA_RSP_SUCCESS;
             break;
         case OTA_CTRL_POINT_OPCODE_CRC:
+            rsp.crc.offset = 0;
+            rsp.crc.crc = calculate_CRC32(pValue, len);
+            OTAProfile_SetupCtrlPointRsp(connHandle, attrHandle, opcode, &rsp);
+            tmos_start_task(Main_TaskID, MAIN_TASK_WRITERSP_EVENT, 2);
             status = OTA_RSP_SUCCESS;
             break;
         case OTA_CTRL_POINT_OPCODE_EXECUTE:

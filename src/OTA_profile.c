@@ -231,39 +231,42 @@ void OTAProfile_SetupCtrlPointRsp(uint16_t connHandle, uint16_t attrHandle, uint
 {
     CtrlPoint_ConnHandle = connHandle;
     CtrlPoint_Noti.handle = attrHandle;
+    // only length varies based on opcode.
     switch(opcode)
     {
         case OTA_CTRL_POINT_OPCODE_VERSION:
             CtrlPoint_Noti.len = sizeof(OTA_CtrlPointRsp_Version_t);
-            CtrlPoint_Noti.pValue = GATT_bm_alloc(connHandle, ATT_HANDLE_VALUE_NOTI, CtrlPoint_Noti.len, NULL, 0);
-            if(CtrlPoint_Noti.pValue)
-            {
-                *(CtrlPoint_Noti.pValue) = rsp->version.version;
-            }
             break;
         case OTA_CTRL_POINT_OPCODE_CRC:
+            CtrlPoint_Noti.len = sizeof(OTA_CtrlPointRsp_CRC_t);
             break;
         case OTA_CTRL_POINT_OPCODE_SELECT:
+            CtrlPoint_Noti.len = sizeof(OTA_CtrlPointRsp_Select_t);
             break;
         case OTA_CTRL_POINT_OPCODE_GET_MTU:
             CtrlPoint_Noti.len = sizeof(OTA_CtrlPointRsp_MTU_t);
-            CtrlPoint_Noti.pValue = GATT_bm_alloc(connHandle, ATT_HANDLE_VALUE_NOTI, CtrlPoint_Noti.len, NULL, 0);
-            if(CtrlPoint_Noti.pValue)
-            {
-                *(CtrlPoint_Noti.pValue) = LO_UINT16(rsp->mtu.size);
-                *(CtrlPoint_Noti.pValue+1) = HI_UINT16(rsp->mtu.size);
-            }
             break;
         case OTA_CTRL_POINT_OPCODE_WRITE:
+            CtrlPoint_Noti.len = sizeof(OTA_CtrlPointRsp_Write_t);
             break;
         case OTA_CTRL_POINT_OPCODE_PING:
+            CtrlPoint_Noti.len = sizeof(OTA_CtrlPointRsp_Ping_t);
             break;
         case OTA_CTRL_POINT_OPCODE_HW_VERSION:
+            CtrlPoint_Noti.len = sizeof(OTA_CtrlPointRsp_Hardware_t);
             break;
         case OTA_CTRL_POINT_OPCODE_FW_VERSION:
+            CtrlPoint_Noti.len = sizeof(OTA_CtrlPointRsp_Version_t);
             break;
         default:
+            return; // do not allocate memory if we have an unknown opcode.
             break;
+    }
+    // we can allocate memory and copy here because everyone does the same thing.
+    CtrlPoint_Noti.pValue = GATT_bm_alloc(connHandle, ATT_HANDLE_VALUE_NOTI, CtrlPoint_Noti.len, NULL, 0);
+    if(CtrlPoint_Noti.pValue)
+    {
+        tmos_memcpy(CtrlPoint_Noti.pValue, rsp, CtrlPoint_Noti.len);
     }
 }
 
