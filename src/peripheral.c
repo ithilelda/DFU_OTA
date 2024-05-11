@@ -52,8 +52,8 @@ static uint8_t attDeviceName[GAP_DEVICE_NAME_LEN] = "DFU_OTA";
 static void OTA_GAPStateNotificationCB(gapRole_States_t newState, gapRoleEvent_t *pEvent);
 static gapRolesCBs_t OTA_GAPRoleCBs = {OTA_GAPStateNotificationCB, NULL, NULL};
 static gapBondCBs_t OTA_BondMgrCBs = {NULL,NULL};
-static OtaRspCode_t OTA_CtrlPointCB(uint16_t connHandle, uint16_t attrHandle, uint8_t* pValue, uint16_t len);
-static OtaRspCode_t OTA_PacketCB(uint16_t connHandle, uint16_t attrHandle, uint8_t* pValue, uint16_t len);
+static void OTA_CtrlPointCB(uint16_t connHandle, uint16_t attrHandle, uint8_t* pValue, uint16_t len);
+static void OTA_PacketCB(uint16_t connHandle, uint16_t attrHandle, uint8_t* pValue, uint16_t len);
 static OTA_WriteCharCBs_t OTA_WriteCharCBs = {OTA_CtrlPointCB, OTA_PacketCB};
 
 static uint8_t advertising_enabled = TRUE;
@@ -183,68 +183,63 @@ static void OTA_GAPStateNotificationCB(gapRole_States_t newState, gapRoleEvent_t
 }
 
 
-static OtaRspCode_t OTA_CtrlPointCB(uint16_t connHandle, uint16_t attrHandle, uint8_t* pValue, uint16_t len)
+static void OTA_CtrlPointCB(uint16_t connHandle, uint16_t attrHandle, uint8_t* pValue, uint16_t len)
 {
-    OtaRspCode_t status = OTA_RSP_OP_FAILED;
-    if(len <= 0) return status; // guard.
+    OtaRspCode_t rspCode = OTA_RSP_OP_FAILED;
+    if(len <= 0) return; // guard.
     uint8_t opcode = pValue[0];
     OTA_CtrlPointRsp_t rsp;
     switch(opcode)
     {
         case OTA_CTRL_POINT_OPCODE_VERSION:
             rsp.version.version = OTAPROFILE_OTA_PROTOCOL_VER;
-            OTAProfile_SetupCtrlPointRsp(connHandle, attrHandle, opcode, &rsp);
-            tmos_start_task(Main_TaskID, MAIN_TASK_WRITERSP_EVENT, 2);
-            status = OTA_RSP_SUCCESS;
+            rspCode = OTA_RSP_SUCCESS;
             break;
         case OTA_CTRL_POINT_OPCODE_CREATE:
-            status = OTA_RSP_SUCCESS;
+            rspCode = OTA_RSP_SUCCESS;
             break;
         case OTA_CTRL_POINT_OPCODE_SET_RCPT_NOTI:
-            status = OTA_RSP_SUCCESS;
+            rspCode = OTA_RSP_SUCCESS;
             break;
         case OTA_CTRL_POINT_OPCODE_CRC:
             rsp.crc.offset = 0;
             rsp.crc.crc = calculate_CRC32(pValue, len);
-            OTAProfile_SetupCtrlPointRsp(connHandle, attrHandle, opcode, &rsp);
-            tmos_start_task(Main_TaskID, MAIN_TASK_WRITERSP_EVENT, 2);
-            status = OTA_RSP_SUCCESS;
+            rspCode = OTA_RSP_SUCCESS;
             break;
         case OTA_CTRL_POINT_OPCODE_EXECUTE:
-            status = OTA_RSP_SUCCESS;
+            rspCode = OTA_RSP_SUCCESS;
             break;
         case OTA_CTRL_POINT_OPCODE_SELECT:
-            status = OTA_RSP_SUCCESS;
+            rspCode = OTA_RSP_SUCCESS;
             break;
         case OTA_CTRL_POINT_OPCODE_GET_MTU:
             rsp.mtu.size = ATT_GetMTU(connHandle);
-            OTAProfile_SetupCtrlPointRsp(connHandle, attrHandle, opcode, &rsp);
-            tmos_start_task(Main_TaskID, MAIN_TASK_WRITERSP_EVENT, 2);
-            status = OTA_RSP_SUCCESS;
+            rspCode = OTA_RSP_SUCCESS;
             break;
         case OTA_CTRL_POINT_OPCODE_WRITE:
-            status = OTA_RSP_SUCCESS;
+            rspCode = OTA_RSP_SUCCESS;
             break;
         case OTA_CTRL_POINT_OPCODE_PING:
-            status = OTA_RSP_SUCCESS;
+            rspCode = OTA_RSP_SUCCESS;
             break;
         case OTA_CTRL_POINT_OPCODE_HW_VERSION:
-            status = OTA_RSP_SUCCESS;
+            rspCode = OTA_RSP_SUCCESS;
             break;
         case OTA_CTRL_POINT_OPCODE_FW_VERSION:
-            status = OTA_RSP_SUCCESS;
+            rspCode = OTA_RSP_SUCCESS;
             break;
         case OTA_CTRL_POINT_OPCODE_ABORT:
-            status = OTA_RSP_SUCCESS;
+            rspCode = OTA_RSP_SUCCESS;
             break;
         default:
-            status = OTA_RSP_INV_CODE;
+            rspCode = OTA_RSP_INV_CODE;
             break;
     }
-    return status;
+    OTAProfile_SetupCtrlPointRsp(connHandle, attrHandle, opcode, &rsp, rspCode);
+    tmos_start_task(Main_TaskID, MAIN_TASK_WRITERSP_EVENT, 2);
 }
 
-static OtaRspCode_t OTA_PacketCB(uint16_t connHandle, uint16_t attrHandle, uint8_t* pValue, uint16_t len)
+static void OTA_PacketCB(uint16_t connHandle, uint16_t attrHandle, uint8_t* pValue, uint16_t len)
 {
 
 }

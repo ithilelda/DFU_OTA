@@ -30,7 +30,6 @@
 /*********************************************************************
  * Control Point OpCodes.
  */
-#define OTA_CTRL_POINT_OPCODE_NUMBER                 0X0D
 #define OTA_CTRL_POINT_OPCODE_VERSION                0x00
 #define OTA_CTRL_POINT_OPCODE_CREATE                 0x01
 #define OTA_CTRL_POINT_OPCODE_SET_RCPT_NOTI          0x02
@@ -43,6 +42,7 @@
 #define OTA_CTRL_POINT_OPCODE_HW_VERSION             0x0A
 #define OTA_CTRL_POINT_OPCODE_FW_VERSION             0x0B
 #define OTA_CTRL_POINT_OPCODE_ABORT                  0x0C
+#define OTA_CTRL_POINT_OPCODE_RSP                    0x60
 /*********************************************************************
  * Control Point Response Code.
  */
@@ -124,8 +124,8 @@ typedef union
 } OTA_CtrlPointRsp_t;
 
 // the application callback function types.
-typedef OtaRspCode_t (*OTA_HandleCtrlPointCB)(uint16_t connHandle, uint16_t attrHandle, uint8_t *pValue, uint16_t len);
-typedef OtaRspCode_t (*OTA_HandlePacketCB)(uint16_t connHandle, uint16_t attrHandle, uint8_t* pValue, uint16_t len);
+typedef void (*OTA_HandleCtrlPointCB)(uint16_t connHandle, uint16_t attrHandle, uint8_t *pValue, uint16_t len);
+typedef void (*OTA_HandlePacketCB)(uint16_t connHandle, uint16_t attrHandle, uint8_t* pValue, uint16_t len);
 typedef struct
 {
     OTA_HandleCtrlPointCB ctrlPointCb;
@@ -136,7 +136,7 @@ typedef struct
 // public apis.
 bStatus_t OTAProfile_AddService(uint32_t services);
 void OTAProfile_RegisterWriteCharCBs(OTA_WriteCharCBs_t* cbs);
-void OTAProfile_SetupCtrlPointRsp(uint16_t connHandle, uint16_t attrHandle, uint8_t opcode, OTA_CtrlPointRsp_t* rsp);
+void OTAProfile_SetupCtrlPointRsp(uint16_t connHandle, uint16_t attrHandle, uint8_t opcode, OTA_CtrlPointRsp_t* rsp, OtaRspCode_t rspCode);
 bStatus_t OTAProfile_CtrlPointDispatchRsp();
 
 #endif /* SRC_OTA_PROFILE_H_ */

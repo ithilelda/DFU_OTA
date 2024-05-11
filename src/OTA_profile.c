@@ -99,9 +99,6 @@ static gattAttribute_t OTAServiceAttrTable[9] = {
 // application callbacks.
 static OTA_WriteCharCBs_t* OTAProfile_WriteCharCBs;
 
-// buffers for operation.
-//static bStatus_t OTAProfile_CtrlPoint_RspCode[OTA_CTRL_POINT_OPCODE_NUMBER];
-
 // local functions.
 static bStatus_t OTAProfile_OTAService_ReadAttrCB(uint16_t connHandle, gattAttribute_t *pAttr, uint8_t *pValue, uint16_t *pLen, uint16_t offset, uint16_t maxLen, uint8_t method)
 {
@@ -227,46 +224,55 @@ void OTAProfile_RegisterWriteCharCBs(OTA_WriteCharCBs_t* cbs)
 static uint16_t CtrlPoint_ConnHandle = 0;
 static attHandleValueNoti_t CtrlPoint_Noti;
 
-void OTAProfile_SetupCtrlPointRsp(uint16_t connHandle, uint16_t attrHandle, uint8_t opcode, OTA_CtrlPointRsp_t* rsp)
+void OTAProfile_SetupCtrlPointRsp(uint16_t connHandle, uint16_t attrHandle, uint8_t opcode, OTA_CtrlPointRsp_t* rsp, OtaRspCode_t rspCode)
 {
     CtrlPoint_ConnHandle = connHandle;
     CtrlPoint_Noti.handle = attrHandle;
-    // only length varies based on opcode.
+    // only length varies based on opcode. defaults to 0.
+    uint16_t content_len = 0;
     switch(opcode)
     {
         case OTA_CTRL_POINT_OPCODE_VERSION:
-            CtrlPoint_Noti.len = sizeof(OTA_CtrlPointRsp_Version_t);
+            content_len = sizeof(OTA_CtrlPointRsp_Version_t);
             break;
         case OTA_CTRL_POINT_OPCODE_CRC:
-            CtrlPoint_Noti.len = sizeof(OTA_CtrlPointRsp_CRC_t);
+            content_len = sizeof(OTA_CtrlPointRsp_CRC_t);
             break;
         case OTA_CTRL_POINT_OPCODE_SELECT:
-            CtrlPoint_Noti.len = sizeof(OTA_CtrlPointRsp_Select_t);
+            content_len = sizeof(OTA_CtrlPointRsp_Select_t);
             break;
         case OTA_CTRL_POINT_OPCODE_GET_MTU:
-            CtrlPoint_Noti.len = sizeof(OTA_CtrlPointRsp_MTU_t);
+            content_len = sizeof(OTA_CtrlPointRsp_MTU_t);
             break;
         case OTA_CTRL_POINT_OPCODE_WRITE:
-            CtrlPoint_Noti.len = sizeof(OTA_CtrlPointRsp_Write_t);
+            content_len = sizeof(OTA_CtrlPointRsp_Write_t);
             break;
         case OTA_CTRL_POINT_OPCODE_PING:
-            CtrlPoint_Noti.len = sizeof(OTA_CtrlPointRsp_Ping_t);
+            content_len = sizeof(OTA_CtrlPointRsp_Ping_t);
             break;
         case OTA_CTRL_POINT_OPCODE_HW_VERSION:
-            CtrlPoint_Noti.len = sizeof(OTA_CtrlPointRsp_Hardware_t);
+            content_len = sizeof(OTA_CtrlPointRsp_Hardware_t);
             break;
         case OTA_CTRL_POINT_OPCODE_FW_VERSION:
-            CtrlPoint_Noti.len = sizeof(OTA_CtrlPointRsp_Version_t);
+            content_len = sizeof(OTA_CtrlPointRsp_Version_t);
             break;
         default:
-            return; // do not allocate memory if we have an unknown opcode.
+            // any other opcode will only return 3 required bytes, no content, so the len is not modified.
             break;
     }
     // we can allocate memory and copy here because everyone does the same thing.
+    // we need to allocate 3 more bytes because we need to insert 0x60(response opcode), request opcode, and the response code.
+    CtrlPoint_Noti.len = content_len + 3;
     CtrlPoint_Noti.pValue = GATT_bm_alloc(connHandle, ATT_HANDLE_VALUE_NOTI, CtrlPoint_Noti.len, NULL, 0);
     if(CtrlPoint_Noti.pValue)
     {
-        tmos_memcpy(CtrlPoint_Noti.pValue, rsp, CtrlPoint_Noti.len);
+        CtrlPoint_Noti.pValue[0] = OTA_CTRL_POINT_OPCODE_RSP;
+        CtrlPoint_Noti.pValue[1] = opcode;
+        CtrlPoint_Noti.pValue[2] = rspCode;
+        if (content_len)
+        {
+            tmos_memcpy(CtrlPoint_Noti.pValue+3, rsp, content_len);
+        }
     }
 }
 
