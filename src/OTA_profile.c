@@ -9,13 +9,15 @@ static const gattAttrType_t OTAService = {ATT_BT_UUID_SIZE, OTAProfile_OTAServic
 // OTA Characteristics.
 static const uint8_t OTAProfile_CtrlPointUUID[ATT_UUID_SIZE] = {CONSTRUCT_CHAR_UUID(OTAPROFILE_OTA_CTRL_POINT_UUID)};
 static uint8_t OTAProfile_CtrlPointProps = GATT_PROP_READ | GATT_PROP_WRITE | GATT_PROP_NOTIFY;
-static uint8_t OTAProfile_CtrlPointValue = 0; // placeholder. It doesn't matter.
+static uint8_t OTAProfile_CtrlPointValue[CTRL_POINT_BUFFER_SIZE];
+static uint16_t OTAProfile_CtrlPointValueLen;
 static uint8_t OTAProfile_CtrlPointUserDesp[18] = "DFU Control Point";
 static gattCharCfg_t OTAProfile_CtrlPointClientCharCfg[PERIPHERAL_MAX_CONNECTION];
 
 static const uint8_t OTAProfile_PacketUUID[ATT_UUID_SIZE] = {CONSTRUCT_CHAR_UUID(OTAPROFILE_OTA_PACKET_UUID)};
 static uint8_t OTAProfile_PacketProps = GATT_PROP_READ | GATT_PROP_WRITE_NO_RSP | GATT_PROP_NOTIFY;
-static uint8_t OTAProfile_PacketBuf[ATT_MAX_MTU_SIZE];
+static uint8_t OTAProfile_PacketValue[ATT_MAX_MTU_SIZE];
+static uint16_t OTAProfile_PacketValueLen;
 static uint8_t OTAProfile_PacketUserDesp[11] = "DFU Packet";
 static gattCharCfg_t OTAProfile_PacketClientCharCfg[PERIPHERAL_MAX_CONNECTION];
 
@@ -42,7 +44,7 @@ static gattAttribute_t OTAServiceAttrTable[9] = {
         {ATT_UUID_SIZE, OTAProfile_CtrlPointUUID},
         GATT_PERMIT_READ | GATT_PERMIT_WRITE,
         0,
-        &OTAProfile_CtrlPointValue
+        OTAProfile_CtrlPointValue
     },
 
     // Control Point Characteristic User Description
@@ -74,7 +76,7 @@ static gattAttribute_t OTAServiceAttrTable[9] = {
         {ATT_UUID_SIZE, OTAProfile_PacketUUID},
         GATT_PERMIT_READ | GATT_PERMIT_WRITE,
         0,
-        OTAProfile_PacketBuf
+        OTAProfile_PacketValue
     },
 
     // Packet Characteristic User Description
@@ -95,73 +97,10 @@ static gattAttribute_t OTAServiceAttrTable[9] = {
 };
 
 // application callbacks.
-static OTA_CtrlPointRspTasks_t* OTAProfile_CtrlPointRspTasks;
+static OTA_WriteCharCBs_t* OTAProfile_WriteCharCBs;
 
 // buffers for operation.
-static uint8_t OTAProfile_CtrlPoint_Buffer[CTRL_POINT_BUFFER_SIZE];
-static uint16_t OTAProfile_CtrlPoint_BufferLen = 0;
-static bStatus_t OTAProfile_CtrlPoint_RspCode[OTA_CTRL_POINT_OPCODE_NUMBER];
-
-static bStatus_t OTAService_Handle_CtrlPoint(uint16_t connHandle, uint8_t* content, uint16_t len)
-{
-    bStatus_t status = ATT_ERR_UNSUPPORTED_REQ;
-    uint8_t opcode = content[0];
-    uint16_t attrHandle = OTAServiceAttrTable[2].handle;
-    switch(opcode)
-    {
-        case OTA_CTRL_POINT_OPCODE_CREATE:
-            status = SUCCESS;
-            break;
-        case OTA_CTRL_POINT_OPCODE_SET_PRN:
-            status = SUCCESS;
-            break;
-        case OTA_CTRL_POINT_OPCODE_CALC_CRC:
-            if(OTAProfile_CtrlPointRspTasks->setupCalcCRCTask)
-            {
-                OTAProfile_CtrlPointRspTasks->setupCalcCRCTask(connHandle,attrHandle,0,0);
-                OTAProfile_CtrlPoint_RspCode[opcode] = OTA_CTRL_POINT_RSP_SUCCESS;
-                status = blePending;
-            }
-            else
-            {
-                OTAProfile_CtrlPoint_RspCode[opcode] = OTA_CTRL_POINT_RSP_OP_FAILED;
-                status = SUCCESS;
-            }
-            break;
-        case OTA_CTRL_POINT_OPCODE_EXECUTE:
-            status = SUCCESS;
-            break;
-        case OTA_CTRL_POINT_OPCODE_SELECT:
-            if(OTAProfile_CtrlPointRspTasks->setupSelectTask)
-            {
-                OTAProfile_CtrlPointRspTasks->setupSelectTask(connHandle,attrHandle,content,len);
-                OTAProfile_CtrlPoint_RspCode[opcode] = OTA_CTRL_POINT_RSP_SUCCESS;
-                status = blePending;
-            }
-            else
-            {
-                OTAProfile_CtrlPoint_RspCode[opcode] = OTA_CTRL_POINT_RSP_OP_FAILED;
-                status = SUCCESS;
-            }
-            break;
-        case OTA_CTRL_POINT_OPCODE_RSP_CODE:
-            if(OTAProfile_CtrlPointRspTasks->setupRspCodeTask)
-            {
-                OTAProfile_CtrlPointRspTasks->setupRspCodeTask(connHandle,attrHandle,0);
-                OTAProfile_CtrlPoint_RspCode[opcode] = OTA_CTRL_POINT_RSP_SUCCESS;
-                status = blePending;
-            }
-            else
-            {
-                OTAProfile_CtrlPoint_RspCode[opcode] = OTA_CTRL_POINT_RSP_OP_FAILED;
-                status = SUCCESS;
-            }
-            break;
-        default:
-            break;
-    }
-    return status;
-}
+//static bStatus_t OTAProfile_CtrlPoint_RspCode[OTA_CTRL_POINT_OPCODE_NUMBER];
 
 // local functions.
 static bStatus_t OTAProfile_OTAService_ReadAttrCB(uint16_t connHandle, gattAttribute_t *pAttr, uint8_t *pValue, uint16_t *pLen, uint16_t offset, uint16_t maxLen, uint8_t method)
@@ -172,8 +111,8 @@ static bStatus_t OTAProfile_OTAService_ReadAttrCB(uint16_t connHandle, gattAttri
         // holy crap they implemented memcmp's same-string status code as 1!?? it is so anti-conventional...
         if (tmos_memcmp(pAttr->type.uuid, OTAProfile_CtrlPointUUID, ATT_UUID_SIZE) == 1)
         {
-            tmos_memcpy(pValue, OTAProfile_CtrlPoint_Buffer, OTAProfile_CtrlPoint_BufferLen);
-            *pLen = OTAProfile_CtrlPoint_BufferLen;
+            tmos_memcpy(pValue, pAttr->pValue, OTAProfile_CtrlPointValueLen);
+            *pLen = OTAProfile_CtrlPointValueLen;
             status = SUCCESS;
         }
         else if (tmos_memcmp(pAttr->type.uuid, OTAProfile_PacketUUID, ATT_UUID_SIZE) == 1)
@@ -196,9 +135,13 @@ static bStatus_t OTAProfile_OTAService_WriteAttrCB(uint16_t connHandle, gattAttr
         {
             if (len <= CTRL_POINT_BUFFER_SIZE)
             {
-                tmos_memcpy(OTAProfile_CtrlPoint_Buffer, pValue, len);
-                OTAProfile_CtrlPoint_BufferLen = len;
-                status = OTAService_Handle_CtrlPoint(connHandle, pValue, len);
+                tmos_memcpy(pAttr->pValue, pValue, len);
+                OTAProfile_CtrlPointValueLen = len;
+                if(OTAProfile_WriteCharCBs && OTAProfile_WriteCharCBs->ctrlPointCb)
+                {
+                    OTAProfile_WriteCharCBs->ctrlPointCb(connHandle, pAttr->handle, pValue, len);
+                }
+                status = SUCCESS;
             }
             else
             {
@@ -207,7 +150,20 @@ static bStatus_t OTAProfile_OTAService_WriteAttrCB(uint16_t connHandle, gattAttr
         }
         else if (tmos_memcmp(pAttr->type.uuid, OTAProfile_PacketUUID, ATT_UUID_SIZE) == 1)
         {
-
+            if (len <= ATT_MAX_MTU_SIZE)
+            {
+                tmos_memcpy(pAttr->pValue, pValue, len);
+                OTAProfile_PacketValueLen = len;
+                if(OTAProfile_WriteCharCBs && OTAProfile_WriteCharCBs->packetCb)
+                {
+                    OTAProfile_WriteCharCBs->packetCb(connHandle, pAttr->handle, pValue, len);
+                }
+                status = SUCCESS;
+            }
+            else
+            {
+                status = ATT_ERR_INSUFFICIENT_RESOURCES;
+            }
         }
     }
     else if(pAttr->type.len == ATT_BT_UUID_SIZE)
@@ -261,7 +217,66 @@ bStatus_t OTAProfile_AddService(uint32_t services)
     return (status);
 }
 
-void OTAProfile_RegisterWriteRspTasks(OTA_CtrlPointRspTasks_t* tasks)
+void OTAProfile_RegisterWriteCharCBs(OTA_WriteCharCBs_t* cbs)
 {
-    OTAProfile_CtrlPointRspTasks = tasks;
+    OTAProfile_WriteCharCBs = cbs;
+}
+
+
+// static variables used only by these two functions.
+static uint16_t CtrlPoint_ConnHandle = 0;
+static attHandleValueNoti_t CtrlPoint_Noti;
+
+void OTAProfile_SetupCtrlPointRsp(uint16_t connHandle, uint16_t attrHandle, uint8_t opcode, OTA_CtrlPointRsp_t* rsp)
+{
+    CtrlPoint_ConnHandle = connHandle;
+    CtrlPoint_Noti.handle = attrHandle;
+    switch(opcode)
+    {
+        case OTA_CTRL_POINT_OPCODE_VERSION:
+            CtrlPoint_Noti.len = sizeof(OTA_CtrlPointRsp_Version_t);
+            CtrlPoint_Noti.pValue = GATT_bm_alloc(connHandle, ATT_HANDLE_VALUE_NOTI, CtrlPoint_Noti.len, NULL, 0);
+            if(CtrlPoint_Noti.pValue)
+            {
+                *(CtrlPoint_Noti.pValue) = rsp->version.version;
+            }
+            break;
+        case OTA_CTRL_POINT_OPCODE_CRC:
+            break;
+        case OTA_CTRL_POINT_OPCODE_SELECT:
+            break;
+        case OTA_CTRL_POINT_OPCODE_GET_MTU:
+            CtrlPoint_Noti.len = sizeof(OTA_CtrlPointRsp_MTU_t);
+            CtrlPoint_Noti.pValue = GATT_bm_alloc(connHandle, ATT_HANDLE_VALUE_NOTI, CtrlPoint_Noti.len, NULL, 0);
+            if(CtrlPoint_Noti.pValue)
+            {
+                *(CtrlPoint_Noti.pValue) = LO_UINT16(rsp->mtu.size);
+                *(CtrlPoint_Noti.pValue+1) = HI_UINT16(rsp->mtu.size);
+            }
+            break;
+        case OTA_CTRL_POINT_OPCODE_WRITE:
+            break;
+        case OTA_CTRL_POINT_OPCODE_PING:
+            break;
+        case OTA_CTRL_POINT_OPCODE_HW_VERSION:
+            break;
+        case OTA_CTRL_POINT_OPCODE_FW_VERSION:
+            break;
+        default:
+            break;
+    }
+}
+
+bStatus_t OTAProfile_CtrlPointDispatchRsp()
+{
+    bStatus_t status = bleIncorrectMode;
+    if(GATTServApp_ReadCharCfg(CtrlPoint_ConnHandle, OTAProfile_CtrlPointClientCharCfg))
+    {
+        status = GATT_Notification(CtrlPoint_ConnHandle, &CtrlPoint_Noti, FALSE);
+        if(status != SUCCESS)
+        {
+            GATT_bm_free((gattMsg_t *)&CtrlPoint_Noti, ATT_HANDLE_VALUE_NOTI);
+        }
+    }
+    return status;
 }

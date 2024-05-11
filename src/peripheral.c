@@ -52,10 +52,9 @@ static uint8_t attDeviceName[GAP_DEVICE_NAME_LEN] = "DFU_OTA";
 static void OTA_GAPStateNotificationCB(gapRole_States_t newState, gapRoleEvent_t *pEvent);
 static gapRolesCBs_t OTA_GAPRoleCBs = {OTA_GAPStateNotificationCB, NULL, NULL};
 static gapBondCBs_t OTA_BondMgrCBs = {NULL,NULL};
-static void OTA_CtrlPointSelectTask(uint16_t connHandle, uint16_t attrHandle, uint8_t* pValue, uint8_t len);
-static OTA_CtrlPointRspTasks_t OTA_RspTasks = {NULL, OTA_CtrlPointSelectTask, NULL};
-static attHandleValueNoti_t notification;
-static uint16_t writeRsp_connHandle;
+static OtaRspCode_t OTA_CtrlPointCB(uint16_t connHandle, uint16_t attrHandle, uint8_t* pValue, uint16_t len);
+static OtaRspCode_t OTA_PacketCB(uint16_t connHandle, uint16_t attrHandle, uint8_t* pValue, uint16_t len);
+static OTA_WriteCharCBs_t OTA_WriteCharCBs = {OTA_CtrlPointCB, OTA_PacketCB};
 
 static uint8_t advertising_enabled = TRUE;
 static uint8_t advertising_event_type = GAP_ADTYPE_ADV_IND;
@@ -93,7 +92,7 @@ void OTA_Init()
     GATTServApp_AddService(GATT_ALL_SERVICES); // GATT attributes
 
     OTAProfile_AddService(GATT_ALL_SERVICES);
-    OTAProfile_RegisterWriteRspTasks(&OTA_RspTasks);
+    OTAProfile_RegisterWriteCharCBs(&OTA_WriteCharCBs);
 
     // start TMOS with the init event.
     tmos_set_event(Main_TaskID, MAIN_TASK_INIT_EVENT);
@@ -121,13 +120,7 @@ uint16_t Main_Task_ProcessEvent(uint8_t task_id, uint16_t events)
     }
     if (events & MAIN_TASK_WRITERSP_EVENT)
     {
-        GPIOB_ResetBits(GPIO_Pin_7);
-        // when we have a hanging write response waiting to be notified, we dispatch the notification here.
-        if(writeRsp_connHandle && GATT_Notification(writeRsp_connHandle, &notification, FALSE) != SUCCESS)
-        {
-            GPIOB_SetBits(GPIO_Pin_7);
-            GATT_bm_free((gattMsg_t *)&notification, ATT_WRITE_RSP);
-        }
+        OTAProfile_CtrlPointDispatchRsp();
         return events ^ MAIN_TASK_WRITERSP_EVENT;
     }
     // fail proof route. Does nothing when the event is unknown.
@@ -189,16 +182,65 @@ static void OTA_GAPStateNotificationCB(gapRole_States_t newState, gapRoleEvent_t
     }
 }
 
-static void OTA_CtrlPointSelectTask(uint16_t connHandle, uint16_t attrHandle, uint8_t* pValue, uint8_t len)
+
+static OtaRspCode_t OTA_CtrlPointCB(uint16_t connHandle, uint16_t attrHandle, uint8_t* pValue, uint16_t len)
 {
-    GATT_bm_free((gattMsg_t*)pValue, ATT_WRITE_RSP);
-    writeRsp_connHandle = connHandle;
-    notification.handle = attrHandle;
-    notification.len = len;
-    notification.pValue = GATT_bm_alloc(connHandle, ATT_WRITE_RSP, notification.len, NULL, 0);
-    if (notification.pValue)
+    OtaRspCode_t status = OTA_RSP_OP_FAILED;
+    if(len <= 0) return status; // guard.
+    uint8_t opcode = pValue[0];
+    OTA_CtrlPointRsp_t rsp;
+    switch(opcode)
     {
-        tmos_memcpy(notification.pValue, pValue, len);
-        tmos_start_task(Main_TaskID, MAIN_TASK_WRITERSP_EVENT, 80);
+        case OTA_CTRL_POINT_OPCODE_VERSION:
+            rsp.version.version = OTAPROFILE_OTA_PROTOCOL_VER;
+            OTAProfile_SetupCtrlPointRsp(connHandle, attrHandle, opcode, &rsp);
+            tmos_start_task(Main_TaskID, MAIN_TASK_WRITERSP_EVENT, 2);
+            status = OTA_RSP_SUCCESS;
+            break;
+        case OTA_CTRL_POINT_OPCODE_CREATE:
+            status = OTA_RSP_SUCCESS;
+            break;
+        case OTA_CTRL_POINT_OPCODE_SET_RCPT_NOTI:
+            status = OTA_RSP_SUCCESS;
+            break;
+        case OTA_CTRL_POINT_OPCODE_CRC:
+            status = OTA_RSP_SUCCESS;
+            break;
+        case OTA_CTRL_POINT_OPCODE_EXECUTE:
+            status = OTA_RSP_SUCCESS;
+            break;
+        case OTA_CTRL_POINT_OPCODE_SELECT:
+            status = OTA_RSP_SUCCESS;
+            break;
+        case OTA_CTRL_POINT_OPCODE_GET_MTU:
+            rsp.mtu.size = ATT_GetMTU(connHandle);
+            OTAProfile_SetupCtrlPointRsp(connHandle, attrHandle, opcode, &rsp);
+            tmos_start_task(Main_TaskID, MAIN_TASK_WRITERSP_EVENT, 2);
+            status = OTA_RSP_SUCCESS;
+            break;
+        case OTA_CTRL_POINT_OPCODE_WRITE:
+            status = OTA_RSP_SUCCESS;
+            break;
+        case OTA_CTRL_POINT_OPCODE_PING:
+            status = OTA_RSP_SUCCESS;
+            break;
+        case OTA_CTRL_POINT_OPCODE_HW_VERSION:
+            status = OTA_RSP_SUCCESS;
+            break;
+        case OTA_CTRL_POINT_OPCODE_FW_VERSION:
+            status = OTA_RSP_SUCCESS;
+            break;
+        case OTA_CTRL_POINT_OPCODE_ABORT:
+            status = OTA_RSP_SUCCESS;
+            break;
+        default:
+            status = OTA_RSP_INV_CODE;
+            break;
     }
+    return status;
+}
+
+static OtaRspCode_t OTA_PacketCB(uint16_t connHandle, uint16_t attrHandle, uint8_t* pValue, uint16_t len)
+{
+
 }
