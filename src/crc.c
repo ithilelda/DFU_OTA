@@ -72,21 +72,18 @@ static const uint32_t CRC32_Table[256] =
 uint32_t update_CRC32 (uint32_t crc32, void *pStart, uint32_t uSize)
 {
   uint8_t *pData = pStart;
+  crc32 ^= CRC_XOROT; // we XOR the crc32 value to get raw result first.
 
   /* calculate CRC */
   while (uSize --)
   {
     crc32 = CRC32_Table[(crc32 ^ *pData++) & 0xFF] ^ (crc32 >> 8);
   }
-  return crc32;
+  /* XOR the result to get crc32 value. */
+  return crc32 ^ CRC_XOROT;
 }
 
 uint32_t calculate_CRC32 (void *pStart, uint32_t uSize)
 {
-  return update_CRC32 (CRC_INITIAL_VALUE, pStart, uSize) ^ CRC_XOROT;
-}
-
-uint32_t get_CRC32(uint32_t crc32)
-{
-  return crc32 ^ CRC_XOROT;
+  return update_CRC32 (0, pStart, uSize);
 }

@@ -21,6 +21,5 @@
 
 uint32_t update_CRC32 (uint32_t crc32, void *pStart, uint32_t uSize);
 uint32_t calculate_CRC32 (void *pStart, uint32_t uSize);
-uint32_t get_CRC32(uint32_t crc32);
 
 #endif /* SRC_CRC_H_ */

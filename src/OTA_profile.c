@@ -8,16 +8,14 @@ static const gattAttrType_t OTAService = {ATT_BT_UUID_SIZE, OTAProfile_OTAServic
 
 // OTA Characteristics.
 static const uint8_t OTAProfile_CtrlPointUUID[ATT_UUID_SIZE] = {CONSTRUCT_CHAR_UUID(OTAPROFILE_OTA_CTRL_POINT_UUID)};
-static uint8_t OTAProfile_CtrlPointProps = GATT_PROP_READ | GATT_PROP_WRITE | GATT_PROP_NOTIFY;
-static uint8_t OTAProfile_CtrlPointValue[CTRL_POINT_BUFFER_SIZE];
-static uint16_t OTAProfile_CtrlPointValueLen;
+static uint8_t OTAProfile_CtrlPointProps = GATT_PROP_WRITE | GATT_PROP_NOTIFY;
+static uint8_t OTAProfile_CtrlPointValue;
 static uint8_t OTAProfile_CtrlPointUserDesp[18] = "DFU Control Point";
 static gattCharCfg_t OTAProfile_CtrlPointClientCharCfg[PERIPHERAL_MAX_CONNECTION];
 
 static const uint8_t OTAProfile_PacketUUID[ATT_UUID_SIZE] = {CONSTRUCT_CHAR_UUID(OTAPROFILE_OTA_PACKET_UUID)};
-static uint8_t OTAProfile_PacketProps = GATT_PROP_READ | GATT_PROP_WRITE_NO_RSP | GATT_PROP_NOTIFY;
-static uint8_t OTAProfile_PacketValue[ATT_MAX_MTU_SIZE];
-static uint16_t OTAProfile_PacketValueLen;
+static uint8_t OTAProfile_PacketProps = GATT_PROP_WRITE_NO_RSP | GATT_PROP_NOTIFY;
+static uint8_t OTAProfile_PacketValue;
 static uint8_t OTAProfile_PacketUserDesp[11] = "DFU Packet";
 static gattCharCfg_t OTAProfile_PacketClientCharCfg[PERIPHERAL_MAX_CONNECTION];
 
@@ -44,7 +42,7 @@ static gattAttribute_t OTAServiceAttrTable[9] = {
         {ATT_UUID_SIZE, OTAProfile_CtrlPointUUID},
         GATT_PERMIT_READ | GATT_PERMIT_WRITE,
         0,
-        OTAProfile_CtrlPointValue
+        &OTAProfile_CtrlPointValue
     },
 
     // Control Point Characteristic User Description
@@ -76,7 +74,7 @@ static gattAttribute_t OTAServiceAttrTable[9] = {
         {ATT_UUID_SIZE, OTAProfile_PacketUUID},
         GATT_PERMIT_READ | GATT_PERMIT_WRITE,
         0,
-        OTAProfile_PacketValue
+        &OTAProfile_PacketValue
     },
 
     // Packet Characteristic User Description
@@ -98,31 +96,6 @@ static gattAttribute_t OTAServiceAttrTable[9] = {
 
 // application callbacks.
 static OTA_WriteCharCBs_t* OTAProfile_WriteCharCBs;
-
-// local functions.
-static bStatus_t OTAProfile_OTAService_ReadAttrCB(uint16_t connHandle, gattAttribute_t *pAttr, uint8_t *pValue, uint16_t *pLen, uint16_t offset, uint16_t maxLen, uint8_t method)
-{
-    bStatus_t status = ATT_ERR_ATTR_NOT_FOUND;
-    if(pAttr->type.len == ATT_UUID_SIZE)
-    {
-        // holy crap they implemented memcmp's same-string status code as 1!?? it is so anti-conventional...
-        if (tmos_memcmp(pAttr->type.uuid, OTAProfile_CtrlPointUUID, ATT_UUID_SIZE) == 1)
-        {
-            tmos_memcpy(pValue, pAttr->pValue, OTAProfile_CtrlPointValueLen);
-            *pLen = OTAProfile_CtrlPointValueLen;
-            status = SUCCESS;
-        }
-        else if (tmos_memcmp(pAttr->type.uuid, OTAProfile_PacketUUID, ATT_UUID_SIZE) == 1)
-        {
-            *pValue = LO_UINT16(maxLen);
-            *(pValue + 1) = HI_UINT16(maxLen);
-            *pLen = 2;
-            status = SUCCESS;
-        }
-    }
-    return status;
-
-}
 static bStatus_t OTAProfile_OTAService_WriteAttrCB(uint16_t connHandle, gattAttribute_t *pAttr, uint8_t *pValue, uint16_t len, uint16_t offset, uint8_t method)
 {
     bStatus_t status = ATT_ERR_ATTR_NOT_FOUND;
@@ -130,37 +103,19 @@ static bStatus_t OTAProfile_OTAService_WriteAttrCB(uint16_t connHandle, gattAttr
     {
         if (tmos_memcmp(pAttr->type.uuid, OTAProfile_CtrlPointUUID, ATT_UUID_SIZE) == 1)
         {
-            if (len <= CTRL_POINT_BUFFER_SIZE)
+            if(OTAProfile_WriteCharCBs && OTAProfile_WriteCharCBs->ctrlPointCb)
             {
-                tmos_memcpy(pAttr->pValue, pValue, len);
-                OTAProfile_CtrlPointValueLen = len;
-                if(OTAProfile_WriteCharCBs && OTAProfile_WriteCharCBs->ctrlPointCb)
-                {
-                    OTAProfile_WriteCharCBs->ctrlPointCb(connHandle, pAttr->handle, pValue, len);
-                }
-                status = SUCCESS;
+                OTAProfile_WriteCharCBs->ctrlPointCb(connHandle, pAttr->handle, pValue, len);
             }
-            else
-            {
-                status = ATT_ERR_INSUFFICIENT_RESOURCES;
-            }
+            status = SUCCESS;
         }
         else if (tmos_memcmp(pAttr->type.uuid, OTAProfile_PacketUUID, ATT_UUID_SIZE) == 1)
         {
-            if (len <= ATT_MAX_MTU_SIZE)
+            if(OTAProfile_WriteCharCBs && OTAProfile_WriteCharCBs->packetCb)
             {
-                tmos_memcpy(pAttr->pValue, pValue, len);
-                OTAProfile_PacketValueLen = len;
-                if(OTAProfile_WriteCharCBs && OTAProfile_WriteCharCBs->packetCb)
-                {
-                    OTAProfile_WriteCharCBs->packetCb(connHandle, pAttr->handle, pValue, len);
-                }
-                status = SUCCESS;
+                OTAProfile_WriteCharCBs->packetCb(connHandle, pAttr->handle, pValue, len);
             }
-            else
-            {
-                status = ATT_ERR_INSUFFICIENT_RESOURCES;
-            }
+            status = SUCCESS;
         }
     }
     else if(pAttr->type.len == ATT_BT_UUID_SIZE)
@@ -181,7 +136,7 @@ static bStatus_t OTAProfile_OTAService_WriteAttrCB(uint16_t connHandle, gattAttr
     return status;
 }
 static gattServiceCBs_t OTAServiceCBs = {
-    OTAProfile_OTAService_ReadAttrCB,  // Read callback function pointer
+    NULL,  // Read callback function pointer
     OTAProfile_OTAService_WriteAttrCB, // Write callback function pointer
     NULL                               // Authorization callback function pointer
 };

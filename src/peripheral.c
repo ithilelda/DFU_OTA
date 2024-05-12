@@ -203,11 +203,9 @@ static uint16_t OTA_Receipt_PRN = 0;
 static uint16_t OTA_Receipt_PRN_Counter = 0;
 static uint32_t OTA_ObjectBuffer[ATT_MAX_MTU_SIZE];
 static uint8_t OTA_CurrentObject = OTA_CONTROL_POINT_OBJ_TYPE_INVALID; // 0 is invalid object, 1 is command, 2 is data.
-static uint32_t OTA_CmdObjectCount = 0;
 static uint32_t OTA_CmdObjectOffset = 0;
 static uint32_t OTA_CmdObjectSize = 0;
 static uint32_t OTA_CmdObjectCRC = 0;
-static uint32_t OTA_DataObjectCount = 0;
 static uint32_t OTA_DataObjectOffset = 0;
 static uint32_t OTA_DataObjectSize = 0;
 static uint32_t OTA_DataObjectCRC = 0;
@@ -237,13 +235,11 @@ static void OTA_CtrlPointCB(uint16_t connHandle, uint16_t attrHandle, uint8_t* p
                 }
                 else if(OTA_CurrentObject == OTA_CONTROL_POINT_OBJ_TYPE_CMD)
                 {
-                    if(!OTA_CmdObjectCount++) OTA_CmdObjectCRC = CRC_INITIAL_VALUE; // reset it to the init value of crc for the first object of this type.
                     OTA_CmdObjectSize = size;
                     rspCode = OTA_RSP_SUCCESS;
                 }
                 else if(OTA_CurrentObject == OTA_CONTROL_POINT_OBJ_TYPE_DATA)
                 {
-                    if(!OTA_DataObjectCount++) OTA_DataObjectCRC = CRC_INITIAL_VALUE;
                     OTA_DataObjectSize = size;
                     rspCode = OTA_RSP_SUCCESS;
                 }
@@ -261,13 +257,13 @@ static void OTA_CtrlPointCB(uint16_t connHandle, uint16_t attrHandle, uint8_t* p
                 if(OTA_CurrentObject == OTA_CONTROL_POINT_OBJ_TYPE_CMD)
                 {
                     rsp.crc.offset = OTA_CmdObjectOffset;
-                    rsp.crc.crc = get_CRC32(OTA_CmdObjectCRC);
+                    rsp.crc.crc = OTA_CmdObjectCRC;
                     rspCode = OTA_RSP_SUCCESS;
                 }
                 else if(OTA_CurrentObject == OTA_CONTROL_POINT_OBJ_TYPE_DATA)
                 {
                     rsp.crc.offset = OTA_DataObjectOffset;
-                    rsp.crc.crc = get_CRC32(OTA_DataObjectCRC);
+                    rsp.crc.crc = OTA_DataObjectCRC;
                     rspCode = OTA_RSP_SUCCESS;
                 }
                 else
@@ -279,15 +275,10 @@ static void OTA_CtrlPointCB(uint16_t connHandle, uint16_t attrHandle, uint8_t* p
             case OTA_CTRL_POINT_OPCODE_EXECUTE:
                 if (OTA_CurrentObject == OTA_CONTROL_POINT_OBJ_TYPE_CMD)
                 {
-                    // we always let go of the init packet and doesn't verify anything because we can't use protobuf right now.
-                    OTA_CmdObjectCount = 0; // once executed, the object count is reset.
-                    OTA_CmdObjectOffset = 0; // also the offset.
                     rspCode = OTA_RSP_SUCCESS;
                 }
                 else if (OTA_CurrentObject == OTA_CONTROL_POINT_OBJ_TYPE_DATA)
                 {
-                    //OTA_DataObjectCount = 0;
-                    //OTA_DataObjectOffset = 0;
                     rspCode = OTA_RSP_SUCCESS;
                 }
                 else
@@ -299,14 +290,14 @@ static void OTA_CtrlPointCB(uint16_t connHandle, uint16_t attrHandle, uint8_t* p
                 if(pContent[0] == OTA_CONTROL_POINT_OBJ_TYPE_CMD)
                 {
                     rsp.select.offset = OTA_CmdObjectOffset;
-                    rsp.select.crc = get_CRC32(OTA_CmdObjectCRC);
+                    rsp.select.crc = OTA_CmdObjectCRC;
                     rsp.select.max_size = mtu - 3; // TODO.
                     rspCode = OTA_RSP_SUCCESS;
                 }
                 else if(pContent[0] == OTA_CONTROL_POINT_OBJ_TYPE_DATA)
                 {
                     rsp.select.offset = OTA_DataObjectOffset;
-                    rsp.select.crc = get_CRC32(OTA_DataObjectCRC);
+                    rsp.select.crc = OTA_DataObjectCRC;
                     rsp.select.max_size = mtu - 3; // TODO.
                     rspCode = OTA_RSP_SUCCESS;
                 }
@@ -321,8 +312,6 @@ static void OTA_CtrlPointCB(uint16_t connHandle, uint16_t attrHandle, uint8_t* p
                 break;
             case OTA_CTRL_POINT_OPCODE_WRITE:
                 // TODO.
-                // update counter and check if we need to respond.
-                /*rsp.write.crc = 0; // set the crc to 0 so that we defaults to not send it.*/
                 rspCode = OTA_RSP_SUCCESS;
                 break;
             case OTA_CTRL_POINT_OPCODE_PING:
@@ -395,19 +384,5 @@ static void OTA_PacketCB(uint16_t connHandle, uint16_t attrHandle, uint8_t* pVal
         //FLASH_ROM_WRITE(APPLICATION_START_ADDR+OTA_DataObjectOffset, pValue, len);
         OTA_DataObjectOffset += len;
         OTA_DataObjectCRC = update_CRC32(OTA_DataObjectCRC, pValue, len);
-        /*
-        if (++OTA_Receipt_PRN_Counter >= OTA_Receipt_PRN)
-        {
-            OTA_Receipt_PRN_Counter = 0;
-            // we only respond with crc if we have a receipt PRN.
-            if(OTA_Receipt_PRN > 0)
-            {
-                OTA_CtrlPointRsp_t rsp;
-                rsp.crc.offset = OTA_DataObjectOffset;
-                rsp.crc.crc = OTA_DataObjectCRC;
-                OTAProfile_SetupCtrlPointRsp(connHandle, 0x10, OTA_CTRL_POINT_OPCODE_CRC, &rsp, OTA_RSP_SUCCESS);
-                tmos_set_event(Main_TaskID, MAIN_TASK_WRITERSP_EVENT);
-            }
-        }*/
     }
 }
