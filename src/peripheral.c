@@ -201,7 +201,9 @@ static void OTA_GAPParamUpdateCB(uint16_t connHandle, uint16_t connInterval, uin
 
 static uint16_t OTA_Receipt_PRN = 0;
 static uint16_t OTA_Receipt_PRN_Counter = 0;
-static uint32_t OTA_ObjectBuffer[ATT_MAX_MTU_SIZE];
+// since we need to write this buffer to flash, it has to be dword aligned, and the size is one page size.
+__attribute__((aligned(4))) static uint32_t OTA_ObjectBuffer[EEPROM_PAGE_SIZE];
+static uint16_t OTA_ObjectBufferOffset = 0; // this is the offset within the buffer, so that multiple packets can be stored.
 static uint8_t OTA_CurrentObject = OTA_CONTROL_POINT_OBJ_TYPE_INVALID; // 0 is invalid object, 1 is command, 2 is data.
 static uint32_t OTA_CmdObjectOffset = 0;
 static uint32_t OTA_CmdObjectSize = 0;
@@ -236,11 +238,13 @@ static void OTA_CtrlPointCB(uint16_t connHandle, uint16_t attrHandle, uint8_t* p
                 else if(OTA_CurrentObject == OTA_CONTROL_POINT_OBJ_TYPE_CMD)
                 {
                     OTA_CmdObjectSize = size;
+                    OTA_ObjectBufferOffset = 0; // when creating a new object, we reset the buffer offset because old data is executed (dumped somewhere else.)
                     rspCode = OTA_RSP_SUCCESS;
                 }
                 else if(OTA_CurrentObject == OTA_CONTROL_POINT_OBJ_TYPE_DATA)
                 {
                     OTA_DataObjectSize = size;
+                    OTA_ObjectBufferOffset = 0;
                     rspCode = OTA_RSP_SUCCESS;
                 }
                 else
@@ -275,10 +279,13 @@ static void OTA_CtrlPointCB(uint16_t connHandle, uint16_t attrHandle, uint8_t* p
             case OTA_CTRL_POINT_OPCODE_EXECUTE:
                 if (OTA_CurrentObject == OTA_CONTROL_POINT_OBJ_TYPE_CMD)
                 {
+                    // we always return success without validating the init packet.
                     rspCode = OTA_RSP_SUCCESS;
                 }
                 else if (OTA_CurrentObject == OTA_CONTROL_POINT_OBJ_TYPE_DATA)
                 {
+                    // the write to flash operation is executed here.
+                    FLASH_ROM_WRITE(APPLICATION_START_ADDR+OTA_DataObjectOffset, OTA_ObjectBuffer, EEPROM_PAGE_SIZE);
                     rspCode = OTA_RSP_SUCCESS;
                 }
                 else
@@ -290,15 +297,17 @@ static void OTA_CtrlPointCB(uint16_t connHandle, uint16_t attrHandle, uint8_t* p
                 if(pContent[0] == OTA_CONTROL_POINT_OBJ_TYPE_CMD)
                 {
                     rsp.select.offset = OTA_CmdObjectOffset;
+                    OTA_CmdObjectCRC = CRC_INITIAL_VALUE; // we initialize CRC when we select.
                     rsp.select.crc = OTA_CmdObjectCRC;
-                    rsp.select.max_size = mtu - 3; // TODO.
+                    rsp.select.max_size = EEPROM_PAGE_SIZE; // each object can be at max the length of our object buffer.
                     rspCode = OTA_RSP_SUCCESS;
                 }
                 else if(pContent[0] == OTA_CONTROL_POINT_OBJ_TYPE_DATA)
                 {
                     rsp.select.offset = OTA_DataObjectOffset;
+                    OTA_DataObjectCRC = CRC_INITIAL_VALUE;
                     rsp.select.crc = OTA_DataObjectCRC;
-                    rsp.select.max_size = mtu - 3; // TODO.
+                    rsp.select.max_size = EEPROM_PAGE_SIZE;
                     rspCode = OTA_RSP_SUCCESS;
                 }
                 else
@@ -372,7 +381,8 @@ static void OTA_PacketCB(uint16_t connHandle, uint16_t attrHandle, uint8_t* pVal
     // if we received a command object and we have enough space, we copy the data.
     if(OTA_CurrentObject == OTA_CONTROL_POINT_OBJ_TYPE_CMD && OTA_CmdObjectOffset + len <= ATT_MAX_MTU_SIZE)
     {
-        tmos_memcpy(OTA_ObjectBuffer, pValue, len);
+        tmos_memcpy(OTA_ObjectBuffer+OTA_ObjectBufferOffset, pValue, len);
+        OTA_ObjectBufferOffset += len;
         OTA_CmdObjectOffset += len;
         // in order to save calculation cycles, we update the crc value while we are receiving the object.
         OTA_CmdObjectCRC = update_CRC32(OTA_CmdObjectCRC, pValue, len);
@@ -380,8 +390,8 @@ static void OTA_PacketCB(uint16_t connHandle, uint16_t attrHandle, uint8_t* pVal
     // we directly write the data object to the flash.
     else if(OTA_CurrentObject == OTA_CONTROL_POINT_OBJ_TYPE_DATA)
     {
-        tmos_memcpy(OTA_ObjectBuffer, pValue, len);
-        //FLASH_ROM_WRITE(APPLICATION_START_ADDR+OTA_DataObjectOffset, pValue, len);
+        tmos_memcpy(OTA_ObjectBuffer+OTA_ObjectBufferOffset, pValue, len);
+        OTA_ObjectBufferOffset += len;
         OTA_DataObjectOffset += len;
         OTA_DataObjectCRC = update_CRC32(OTA_DataObjectCRC, pValue, len);
     }
