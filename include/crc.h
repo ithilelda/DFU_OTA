@@ -11,7 +11,7 @@
 #include "config.h"
 
 
-#define CRC_INITIAL_VALUE           0xFFFFFFFF
+#define CRC_INITIAL_VALUE           0
 #define CRC_XOROT                   0xFFFFFFFF
 #define CRC_REFLECT_DATA            0
 #define CRC_REFLECT_REMAINDER       0

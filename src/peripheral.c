@@ -205,10 +205,10 @@ static uint32_t OTA_ObjectBuffer[ATT_MAX_MTU_SIZE];
 static uint8_t OTA_CurrentObject = OTA_CONTROL_POINT_OBJ_TYPE_INVALID; // 0 is invalid object, 1 is command, 2 is data.
 static uint32_t OTA_CmdObjectOffset = 0;
 static uint32_t OTA_CmdObjectSize = 0;
-static uint32_t OTA_CmdObjectCRC = 0;
+static uint32_t OTA_CmdObjectCRC = CRC_INITIAL_VALUE;
 static uint32_t OTA_DataObjectOffset = 0;
 static uint32_t OTA_DataObjectSize = 0;
-static uint32_t OTA_DataObjectCRC = 0;
+static uint32_t OTA_DataObjectCRC = CRC_INITIAL_VALUE;
 static void OTA_CtrlPointCB(uint16_t connHandle, uint16_t attrHandle, uint8_t* pValue, uint16_t len)
 {
     OtaRspCode_t rspCode = OTA_RSP_INSUFFICIENT_RESOURCES;

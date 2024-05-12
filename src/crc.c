@@ -85,5 +85,5 @@ uint32_t update_CRC32 (uint32_t crc32, void *pStart, uint32_t uSize)
 
 uint32_t calculate_CRC32 (void *pStart, uint32_t uSize)
 {
-  return update_CRC32 (0, pStart, uSize);
+  return update_CRC32 (CRC_INITIAL_VALUE, pStart, uSize);
 }
