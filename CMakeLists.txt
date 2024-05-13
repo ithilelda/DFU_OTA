@@ -48,6 +48,7 @@ project(DFU_OTA LANGUAGES C CXX ASM)
 
 # 编译目标设置
 file(TO_CMAKE_PATH "$ENV{CH57X_DEPENDENCY}" DEPENDENCY)
+file(TO_CMAKE_PATH "$ENV{CYCLONE_DIR}" CYCLONE)
 add_executable(${PROJECT_NAME}.elf)
 target_include_directories(${PROJECT_NAME}.elf PRIVATE
   ${CMAKE_SOURCE_DIR}/include
@@ -55,6 +56,9 @@ target_include_directories(${PROJECT_NAME}.elf PRIVATE
   ${DEPENDENCY}/StdPeriphDriver/inc
   ${DEPENDENCY}/HAL/include
   ${DEPENDENCY}/LIB
+  ${CYCLONE}/common
+  ${CYCLONE}/utils
+  ${CYCLONE}/cyclone_crypto
 )
 target_link_directories(${PROJECT_NAME}.elf PRIVATE
   ${DEPENDENCY}/StdPeriphDriver
@@ -65,9 +69,12 @@ file(GLOB_RECURSE SOURCES CONFIGURE_DEPENDS
   ${DEPENDENCY}/RVMSIS/*.c
   ${DEPENDENCY}/StdPeriphDriver/*.c
   ${DEPENDENCY}/HAL/*.c
+  ${CYCLONE}/cyclone_crypto/hash/*.c
+  ${CYCLONE}/cyclone_crypto/mac/*.c
 )
 target_sources(${PROJECT_NAME}.elf PRIVATE
   ${SOURCES}
+  ${CYCLONE}/common/cpu_endian.c
   Startup/startup_ch573.S
 )
 target_link_libraries(${PROJECT_NAME}.elf ISP573 CH57xBLE)
@@ -85,6 +92,6 @@ add_custom_command(
   TARGET ${PROJECT_NAME}.elf
   POST_BUILD
   COMMAND ${CMAKE_OBJCOPY} -Oihex $<TARGET_FILE:${PROJECT_NAME}.elf> ${HEX_FILE}
-  COMMAND ${CMAKE_OBJCOPY} -Obinary $<TARGET_FILE:${PROJECT_NAME}.elf>
-          ${BIN_FILE})
+  COMMAND ${CMAKE_OBJCOPY} -Obinary $<TARGET_FILE:${PROJECT_NAME}.elf> ${BIN_FILE}
+)
 

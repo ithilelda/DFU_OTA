@@ -10,6 +10,8 @@
 #include "crc.h"
 #include "peripheral.h"
 #include "OTA_profile.h"
+#include "hash/sha256.h"
+#include "mac/hmac.h"
 
 
 // function declaration for later reference.
@@ -17,6 +19,7 @@ static void OTA_GAPStateNotificationCB(gapRole_States_t newState, gapRoleEvent_t
 static void OTA_GAPParamUpdateCB(uint16_t connHandle, uint16_t connInterval, uint16_t connSlaveLatency, uint16_t connTimeout);
 static void OTA_CtrlPointCB(uint16_t connHandle, uint16_t attrHandle, uint8_t* pValue, uint16_t len);
 static void OTA_PacketCB(uint16_t connHandle, uint16_t attrHandle, uint8_t* pValue, uint16_t len);
+static bStatus_t OTA_PreValidateCmdObject(uint8_t* cmd);
 
 /**************************************************
  * Public APIs.
@@ -202,7 +205,7 @@ static void OTA_GAPParamUpdateCB(uint16_t connHandle, uint16_t connInterval, uin
 static uint16_t OTA_Receipt_PRN = 0;
 static uint16_t OTA_Receipt_PRN_Counter = 0;
 // since we need to write this buffer to flash, it has to be dword aligned, and the size is one page size.
-__attribute__((aligned(4))) static uint32_t OTA_ObjectBuffer[EEPROM_PAGE_SIZE];
+__attribute__((aligned(4))) static uint8_t OTA_ObjectBuffer[EEPROM_PAGE_SIZE];
 static uint16_t OTA_ObjectBufferOffset = 0; // this is the offset within the buffer, so that multiple packets can be stored.
 static uint8_t OTA_CurrentObject = OTA_CONTROL_POINT_OBJ_TYPE_INVALID; // 0 is invalid object, 1 is command, 2 is data.
 static uint32_t OTA_CmdObjectOffset = 0;
@@ -211,6 +214,8 @@ static uint32_t OTA_CmdObjectCRC = CRC_INITIAL_VALUE;
 static uint32_t OTA_DataObjectOffset = 0;
 static uint32_t OTA_DataObjectSize = 0;
 static uint32_t OTA_DataObjectCRC = CRC_INITIAL_VALUE;
+// hash related.
+static Sha256Context SHA256Context;
 static void OTA_CtrlPointCB(uint16_t connHandle, uint16_t attrHandle, uint8_t* pValue, uint16_t len)
 {
     OtaRspCode_t rspCode = OTA_RSP_INSUFFICIENT_RESOURCES;
@@ -279,11 +284,13 @@ static void OTA_CtrlPointCB(uint16_t connHandle, uint16_t attrHandle, uint8_t* p
             case OTA_CTRL_POINT_OPCODE_EXECUTE:
                 if (OTA_CurrentObject == OTA_CONTROL_POINT_OBJ_TYPE_CMD)
                 {
-                    // we always return success without validating the init packet.
-                    rspCode = OTA_RSP_SUCCESS;
+                    rspCode = OTA_PreValidateCmdObject(OTA_ObjectBuffer);
                 }
                 else if (OTA_CurrentObject == OTA_CONTROL_POINT_OBJ_TYPE_DATA)
                 {
+                    // we update the hash once each data object finishes transfer and is executed. This way, we ensures that the block is 256 bytes save the last one.
+                    // we use the object buffer offset to set the length so if the last data object is < 256, our SHA256 algo can correctly pad it.
+                    sha256Update(&SHA256Context, OTA_ObjectBuffer, OTA_ObjectBufferOffset);
                     // the write to flash operation is executed here.
                     FLASH_ROM_WRITE(APPLICATION_START_ADDR+OTA_DataObjectOffset, OTA_ObjectBuffer, EEPROM_PAGE_SIZE);
                     rspCode = OTA_RSP_SUCCESS;
@@ -304,6 +311,7 @@ static void OTA_CtrlPointCB(uint16_t connHandle, uint16_t attrHandle, uint8_t* p
                 }
                 else if(pContent[0] == OTA_CONTROL_POINT_OBJ_TYPE_DATA)
                 {
+                    sha256Init(&SHA256Context); // we reinit the SHA256 context when we select the data object (starting transfer of firmware image).
                     rsp.select.offset = OTA_DataObjectOffset;
                     OTA_DataObjectCRC = CRC_INITIAL_VALUE;
                     rsp.select.crc = OTA_DataObjectCRC;
@@ -328,8 +336,8 @@ static void OTA_CtrlPointCB(uint16_t connHandle, uint16_t attrHandle, uint8_t* p
                 rspCode = OTA_RSP_SUCCESS;
                 break;
             case OTA_CTRL_POINT_OPCODE_HW_VERSION:
-                rsp.hardware.part = ID_CH571;
-                rsp.hardware.variant = VARIANT_CH571;
+                rsp.hardware.part = HARDWARE_VERSION;
+                rsp.hardware.variant = HARDWARE_VARIANT;
                 rsp.hardware.memory.rom_size = CH571_ROM_SIZE;
                 rsp.hardware.memory.ram_size = CH57x_RAM_SIZE;
                 rsp.hardware.memory.rom_page_size = EEPROM_PAGE_SIZE;
@@ -395,4 +403,21 @@ static void OTA_PacketCB(uint16_t connHandle, uint16_t attrHandle, uint8_t* pVal
         OTA_DataObjectOffset += len;
         OTA_DataObjectCRC = update_CRC32(OTA_DataObjectCRC, pValue, len);
     }
+}
+
+static bStatus_t OTA_PreValidateCmdObject(uint8_t* cmd)
+{
+    bStatus_t result = OTA_RSP_SUCCESS;
+    CmdObject_t* obj = (CmdObject_t*) cmd;
+    __attribute__((aligned(4))) EEPROM_Data_t data;
+    EEPROM_READ(EEPROM_DATA_ADDR, &data, sizeof(EEPROM_Data_t));
+    uint8_t digest[SHA256_BLOCK_SIZE];
+    hmacCompute(SHA1_HASH_ALGO, data.hmac_key, SHA256_BLOCK_SIZE, cmd, sizeof(CmdObject_t) - SHA256_BLOCK_SIZE, digest);
+    if(!tmos_memcmp(digest, obj->obj_signature, SHA256_BLOCK_SIZE)) result = OTA_RSP_OP_FAILED;
+    else if(obj->lib_version > *VER_LIB) result = OTA_RSP_OP_FAILED;
+    else if(obj->hw_version != HARDWARE_VERSION) result = OTA_RSP_OP_FAILED;
+    else if(obj->type != OTA_FW_TYPE_BOOTLOADER && obj->type != OTA_FW_TYPE_APPLICATION) result = OTA_RSP_OP_FAILED; // we only support uploading bootloader or app.
+    else if(obj->type == OTA_FW_TYPE_BOOTLOADER && (obj->bin_size > BOOTLOADER_MAX_SIZE || (!obj->is_debug && obj->fw_version <= data.bl_version))) result = OTA_RSP_OP_FAILED;
+    else if(obj->type == OTA_FW_TYPE_APPLICATION && (obj->bin_size > APPLICATION_MAX_SIZE || (!obj->is_debug && obj->fw_version <= data.app_version))) result = OTA_RSP_OP_FAILED;
+    return result;
 }
