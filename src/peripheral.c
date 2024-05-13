@@ -421,9 +421,9 @@ static bStatus_t OTA_PreValidateCmdObject(CmdObject_t* obj)
     bStatus_t result = OTA_RSP_SUCCESS;
     __attribute__((aligned(4))) EEPROM_Data_t data;
     EEPROM_READ(EEPROM_DATA_ADDR, &data, sizeof(EEPROM_Data_t));
-    uint8_t digest[SHA256_BLOCK_SIZE];
-    hmacCompute(SHA1_HASH_ALGO, data.hmac_key, SHA256_BLOCK_SIZE, obj, sizeof(CmdObject_t) - SHA256_BLOCK_SIZE, digest);
-    if(!tmos_memcmp(digest, obj->obj_signature, SHA256_BLOCK_SIZE)) result = OTA_RSP_OP_FAILED;
+    uint8_t digest[SHA256_DIGEST_SIZE];
+    hmacCompute(SHA1_HASH_ALGO, data.hmac_key, SHA256_DIGEST_SIZE, obj, sizeof(CmdObject_t) - SHA256_DIGEST_SIZE, digest);
+    if(!tmos_memcmp(digest, obj->obj_signature, SHA256_DIGEST_SIZE)) result = OTA_RSP_OP_FAILED;
     else if(obj->lib_version > *VER_LIB) result = OTA_RSP_OP_FAILED;
     else if(obj->hw_version != HARDWARE_VERSION) result = OTA_RSP_OP_FAILED;
     else if(obj->type != OTA_FW_TYPE_BOOTLOADER && obj->type != OTA_FW_TYPE_APPLICATION) result = OTA_RSP_OP_FAILED; // we only support uploading bootloader or app.
