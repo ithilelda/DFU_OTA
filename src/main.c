@@ -13,6 +13,12 @@ __attribute__((aligned(4))) uint32_t MEM_BUF[BLE_MEMHEAP_SIZE / 4];
 int main()
 {
     SetSysClock(CLK_SOURCE_PLL_60MHz);
+    uint32_t boot_app;
+    EEPROM_READ(EEPROM_DATA_ADDR, &boot_app, sizeof(boot_app));
+    if(boot_app == 1) // only the number 1 will boot the app.
+    {
+        jumpApp();
+    }
     GPIOA_ModeCfg(GPIO_Pin_All, GPIO_ModeIN_PU);
     GPIOB_ModeCfg(GPIO_Pin_All, GPIO_ModeIN_PU);
     GPIOB_ModeCfg(GPIO_Pin_7, GPIO_ModeOut_PP_20mA);

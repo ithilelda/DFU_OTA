@@ -35,7 +35,10 @@
 #define APPLICATION_MAX_SIZE         0x0000C000
 
 // data storage info.
-#define EEPROM_DATA_ADDR             0x00070000
+#define EEPROM_DATA_ADDR             0x00077000
+
+// jump app def.
+#define jumpApp              ((void (*)(void))((uint32_t *)APPLICATION_START_ADDR))
 
 // Main Task Events.
 #define MAIN_TASK_INIT_EVENT         0x01
@@ -80,6 +83,7 @@ typedef struct
 
 typedef struct
 {
+    uint32_t boot_app; // make it 32 bit just to be dword aligned.
     uint32_t app_version;
     uint32_t bl_version;
     uint8_t hmac_key[SHA256_BLOCK_SIZE];
