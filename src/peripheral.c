@@ -128,7 +128,10 @@ uint16_t Main_Task_ProcessEvent(uint8_t task_id, uint16_t events)
     if (events & MAIN_TASK_WRITERSP_EVENT)
     {
         OTAProfile_DispatchCtrlPointRsp();
-        if(readyToReset) SYS_ResetExecute();
+        if(readyToReset)
+        {
+            SYS_ResetExecute();
+        }
         return events ^ MAIN_TASK_WRITERSP_EVENT;
     }
     // fail proof route. Does nothing when the event is unknown.
@@ -217,6 +220,7 @@ static uint32_t OTA_CmdObjectCRC = CRC_INITIAL_VALUE;
 static uint32_t OTA_DataObjectOffset = 0;
 static uint32_t OTA_DataObjectSize = 0;
 static uint32_t OTA_DataObjectCRC = CRC_INITIAL_VALUE;
+uint8_t digestBuffer[SHA256_DIGEST_SIZE];
 // hash related.
 static Sha256Context SHA256Context;
 static void OTA_CtrlPointCB(uint16_t connHandle, uint16_t attrHandle, uint8_t* pValue, uint16_t len)
@@ -301,7 +305,8 @@ static void OTA_CtrlPointCB(uint16_t connHandle, uint16_t attrHandle, uint8_t* p
                     if(OTA_DataObjectOffset == cmdObj.bin_size)
                     {
                         // do post validation.
-                        // raise the reset flag.
+                        // raise the boot app and reset flag.
+                        EEPROM_WRITE(EEPROM_DATA_ADDR, (uint32_t*)0, sizeof(uint32_t));
                         readyToReset = TRUE;
                     }
                     rspCode = OTA_RSP_SUCCESS;
@@ -421,9 +426,8 @@ static bStatus_t OTA_PreValidateCmdObject(CmdObject_t* obj)
     bStatus_t result = OTA_RSP_SUCCESS;
     __attribute__((aligned(4))) EEPROM_Data_t data;
     EEPROM_READ(EEPROM_DATA_ADDR, &data, sizeof(EEPROM_Data_t));
-    uint8_t digest[SHA256_DIGEST_SIZE];
-    hmacCompute(SHA1_HASH_ALGO, data.hmac_key, SHA256_DIGEST_SIZE, obj, sizeof(CmdObject_t) - SHA256_DIGEST_SIZE, digest);
-    if(!tmos_memcmp(digest, obj->obj_signature, SHA256_DIGEST_SIZE)) result = OTA_RSP_OP_FAILED;
+    hmacCompute(SHA256_HASH_ALGO, data.hmac_key, SHA256_DIGEST_SIZE, obj, sizeof(CmdObject_t) - SHA256_DIGEST_SIZE, digestBuffer);
+    if(!tmos_memcmp(digestBuffer, obj->obj_signature, SHA256_DIGEST_SIZE)) result = OTA_RSP_OP_FAILED;
     else if(obj->lib_version > *VER_LIB) result = OTA_RSP_OP_FAILED;
     else if(obj->hw_version != HARDWARE_VERSION) result = OTA_RSP_OP_FAILED;
     else if(obj->type != OTA_FW_TYPE_BOOTLOADER && obj->type != OTA_FW_TYPE_APPLICATION) result = OTA_RSP_OP_FAILED; // we only support uploading bootloader or app.
