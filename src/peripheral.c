@@ -27,6 +27,7 @@ static bStatus_t OTA_PreValidateCmdObject(CmdObject_t* obj);
 // I declare variables only before when needed.
 static uint8_t Main_TaskID;
 static BOOL Conn_Established = FALSE;
+static BOOL readyToReset = FALSE;
 static uint8_t advertData[31] = {
    // Flags; this sets the device to use limited discoverable mode (advertises indefinitely)
    0x02, // length of this data
@@ -127,6 +128,7 @@ uint16_t Main_Task_ProcessEvent(uint8_t task_id, uint16_t events)
     if (events & MAIN_TASK_WRITERSP_EVENT)
     {
         OTAProfile_DispatchCtrlPointRsp();
+        if(readyToReset) SYS_ResetExecute();
         return events ^ MAIN_TASK_WRITERSP_EVENT;
     }
     // fail proof route. Does nothing when the event is unknown.
@@ -208,7 +210,7 @@ static uint16_t OTA_Receipt_PRN_Counter = 0;
 __attribute__((aligned(4))) static uint8_t OTA_ObjectBuffer[EEPROM_PAGE_SIZE];
 static uint16_t OTA_ObjectBufferOffset = 0; // this is the offset within the buffer, so that multiple packets can be stored.
 static uint8_t OTA_CurrentObject = OTA_CONTROL_POINT_OBJ_TYPE_INVALID; // 0 is invalid object, 1 is command, 2 is data.
-static CmdObject_t* cmdObj;
+static CmdObject_t cmdObj;
 static uint32_t OTA_CmdObjectOffset = 0;
 static uint32_t OTA_CmdObjectSize = 0;
 static uint32_t OTA_CmdObjectCRC = CRC_INITIAL_VALUE;
@@ -286,8 +288,8 @@ static void OTA_CtrlPointCB(uint16_t connHandle, uint16_t attrHandle, uint8_t* p
                 if (OTA_CurrentObject == OTA_CONTROL_POINT_OBJ_TYPE_CMD)
                 {
                     // when executing the command object, we finalize and validate it.
-                    cmdObj = (CmdObject_t*)OTA_ObjectBuffer;
-                    rspCode = OTA_PreValidateCmdObject(cmdObj);
+                    tmos_memcpy(&cmdObj, OTA_ObjectBuffer, sizeof(CmdObject_t));
+                    rspCode = OTA_PreValidateCmdObject(&cmdObj);
                 }
                 else if (OTA_CurrentObject == OTA_CONTROL_POINT_OBJ_TYPE_DATA)
                 {
@@ -296,6 +298,12 @@ static void OTA_CtrlPointCB(uint16_t connHandle, uint16_t attrHandle, uint8_t* p
                     sha256Update(&SHA256Context, OTA_ObjectBuffer, OTA_ObjectBufferOffset);
                     // the write to flash operation is executed here.
                     FLASH_ROM_WRITE(APPLICATION_START_ADDR+OTA_DataObjectOffset, OTA_ObjectBuffer, EEPROM_PAGE_SIZE);
+                    if(OTA_DataObjectOffset == cmdObj.bin_size)
+                    {
+                        // do post validation.
+                        // raise the reset flag.
+                        readyToReset = TRUE;
+                    }
                     rspCode = OTA_RSP_SUCCESS;
                 }
                 else
