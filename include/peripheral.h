@@ -35,7 +35,7 @@
 #define APPLICATION_MAX_SIZE         0x0000C000
 
 // data storage info.
-#define EEPROM_DATA_ADDR             0x00077000
+#define EEPROM_DATA_ADDR             0x00077000 - FLASH_ROM_MAX_SIZE
 
 // jump app def.
 #define jumpApp              ((void (*)(void))((uint32_t *)APPLICATION_START_ADDR))
