@@ -19,7 +19,7 @@ static void OTA_GAPStateNotificationCB(gapRole_States_t newState, gapRoleEvent_t
 static void OTA_GAPParamUpdateCB(uint16_t connHandle, uint16_t connInterval, uint16_t connSlaveLatency, uint16_t connTimeout);
 static void OTA_CtrlPointCB(uint16_t connHandle, uint16_t attrHandle, uint8_t* pValue, uint16_t len);
 static void OTA_PacketCB(uint16_t connHandle, uint16_t attrHandle, uint8_t* pValue, uint16_t len);
-static bStatus_t OTA_PreValidateCmdObject(uint8_t* cmd);
+static bStatus_t OTA_PreValidateCmdObject(CmdObject_t* obj);
 
 /**************************************************
  * Public APIs.
@@ -208,6 +208,7 @@ static uint16_t OTA_Receipt_PRN_Counter = 0;
 __attribute__((aligned(4))) static uint8_t OTA_ObjectBuffer[EEPROM_PAGE_SIZE];
 static uint16_t OTA_ObjectBufferOffset = 0; // this is the offset within the buffer, so that multiple packets can be stored.
 static uint8_t OTA_CurrentObject = OTA_CONTROL_POINT_OBJ_TYPE_INVALID; // 0 is invalid object, 1 is command, 2 is data.
+static CmdObject_t* cmdObj;
 static uint32_t OTA_CmdObjectOffset = 0;
 static uint32_t OTA_CmdObjectSize = 0;
 static uint32_t OTA_CmdObjectCRC = CRC_INITIAL_VALUE;
@@ -284,7 +285,9 @@ static void OTA_CtrlPointCB(uint16_t connHandle, uint16_t attrHandle, uint8_t* p
             case OTA_CTRL_POINT_OPCODE_EXECUTE:
                 if (OTA_CurrentObject == OTA_CONTROL_POINT_OBJ_TYPE_CMD)
                 {
-                    rspCode = OTA_PreValidateCmdObject(OTA_ObjectBuffer);
+                    // when executing the command object, we finalize and validate it.
+                    cmdObj = (CmdObject_t*)OTA_ObjectBuffer;
+                    rspCode = OTA_PreValidateCmdObject(cmdObj);
                 }
                 else if (OTA_CurrentObject == OTA_CONTROL_POINT_OBJ_TYPE_DATA)
                 {
@@ -405,14 +408,13 @@ static void OTA_PacketCB(uint16_t connHandle, uint16_t attrHandle, uint8_t* pVal
     }
 }
 
-static bStatus_t OTA_PreValidateCmdObject(uint8_t* cmd)
+static bStatus_t OTA_PreValidateCmdObject(CmdObject_t* obj)
 {
     bStatus_t result = OTA_RSP_SUCCESS;
-    CmdObject_t* obj = (CmdObject_t*) cmd;
     __attribute__((aligned(4))) EEPROM_Data_t data;
     EEPROM_READ(EEPROM_DATA_ADDR, &data, sizeof(EEPROM_Data_t));
     uint8_t digest[SHA256_BLOCK_SIZE];
-    hmacCompute(SHA1_HASH_ALGO, data.hmac_key, SHA256_BLOCK_SIZE, cmd, sizeof(CmdObject_t) - SHA256_BLOCK_SIZE, digest);
+    hmacCompute(SHA1_HASH_ALGO, data.hmac_key, SHA256_BLOCK_SIZE, obj, sizeof(CmdObject_t) - SHA256_BLOCK_SIZE, digest);
     if(!tmos_memcmp(digest, obj->obj_signature, SHA256_BLOCK_SIZE)) result = OTA_RSP_OP_FAILED;
     else if(obj->lib_version > *VER_LIB) result = OTA_RSP_OP_FAILED;
     else if(obj->hw_version != HARDWARE_VERSION) result = OTA_RSP_OP_FAILED;
