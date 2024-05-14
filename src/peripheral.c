@@ -25,9 +25,9 @@ static bStatus_t OTA_PreValidateCmdObject(CmdObject_t* obj);
  * Public APIs.
  */
 // I declare variables only before when needed.
+static uint32_t BOOTAPP = 0; // constant to write to the EEPROM.
 static uint8_t Main_TaskID;
 static BOOL Conn_Established = FALSE;
-static BOOL readyToReset = FALSE;
 static uint8_t advertData[31] = {
    // Flags; this sets the device to use limited discoverable mode (advertises indefinitely)
    0x02, // length of this data
@@ -128,11 +128,12 @@ uint16_t Main_Task_ProcessEvent(uint8_t task_id, uint16_t events)
     if (events & MAIN_TASK_WRITERSP_EVENT)
     {
         OTAProfile_DispatchCtrlPointRsp();
-        if(readyToReset)
-        {
-            SYS_ResetExecute();
-        }
         return events ^ MAIN_TASK_WRITERSP_EVENT;
+    }
+    if (events & MAIN_TASK_RESET_EVENT)
+    {
+        SYS_ResetExecute();
+        return events ^ MAIN_TASK_RESET_EVENT;
     }
     // fail proof route. Does nothing when the event is unknown.
     return 0;
@@ -301,15 +302,22 @@ static void OTA_CtrlPointCB(uint16_t connHandle, uint16_t attrHandle, uint8_t* p
                     // we use the object buffer offset to set the length so if the last data object is < 256, our SHA256 algo can correctly pad it.
                     sha256Update(&SHA256Context, OTA_ObjectBuffer, OTA_ObjectBufferOffset);
                     // the write to flash operation is executed here.
-                    FLASH_ROM_WRITE(APPLICATION_START_ADDR+OTA_DataObjectOffset, OTA_ObjectBuffer, EEPROM_PAGE_SIZE);
+                    if(FLASH_ROM_WRITE(APPLICATION_START_ADDR+OTA_DataObjectOffset-OTA_ObjectBufferOffset, OTA_ObjectBuffer, OTA_ObjectBufferOffset))
+                    {
+                        rspCode = OTA_RSP_EXT_ERROR;
+                    }
+                    else
+                    {
+                        rspCode = OTA_RSP_SUCCESS;
+                    }
                     if(OTA_DataObjectOffset == cmdObj.bin_size)
                     {
                         // do post validation.
-                        // raise the boot app and reset flag.
-                        EEPROM_WRITE(EEPROM_DATA_ADDR, (uint32_t*)0, sizeof(uint32_t));
-                        readyToReset = TRUE;
+                        // raise the boot app flag.
+                        EEPROM_WRITE(EEPROM_DATA_ADDR, &BOOTAPP, sizeof(uint32_t));
+                        // dispatch a delayed reset.
+                        tmos_start_task(Main_TaskID, MAIN_TASK_RESET_EVENT, 100);
                     }
-                    rspCode = OTA_RSP_SUCCESS;
                 }
                 else
                 {
@@ -332,7 +340,15 @@ static void OTA_CtrlPointCB(uint16_t connHandle, uint16_t attrHandle, uint8_t* p
                     OTA_DataObjectCRC = CRC_INITIAL_VALUE;
                     rsp.select.crc = OTA_DataObjectCRC;
                     rsp.select.max_size = EEPROM_PAGE_SIZE;
-                    rspCode = OTA_RSP_SUCCESS;
+                    // we need to erase the corresponding flash region to prepare for the write.
+                    if(FLASH_ROM_ERASE(APPLICATION_START_ADDR, APPLICATION_MAX_SIZE))
+                    {
+                        rspCode = OTA_RSP_EXT_ERROR;
+                    }
+                    else
+                    {
+                        rspCode = OTA_RSP_SUCCESS;
+                    }
                 }
                 else
                 {

@@ -44,6 +44,7 @@
 #define MAIN_TASK_INIT_EVENT         0x01
 #define MAIN_TASK_TIMEOUT_EVENT      0x02
 #define MAIN_TASK_WRITERSP_EVENT     0x04
+#define MAIN_TASK_RESET_EVENT        0x08
 
 // ADV parameters.
 #define DEFAULT_ADVERTISING_INTERVAL    80 // in multiples of 625us.
