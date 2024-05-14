@@ -153,7 +153,7 @@ handle_reset:
 	addi a0, a0, 4
 	bltu a0, a1, 1b
 2:
-    li t0, 0x88
+    li t0, 0x1888
     csrs mstatus, t0
 	la t0, _vector_base
     ori t0, t0, 1
