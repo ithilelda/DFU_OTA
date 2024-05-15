@@ -1,8 +1,8 @@
-#ifndef SRC_PERIPHERAL_H_
-#define SRC_PERIPHERAL_H_
+#ifndef PERIPHERAL_H
+#define PERIPHERAL_H
 
 
-#include "hash/sha256.h"
+#include "signature.h"
 
 // -- Defines -- //
 // Chip info.
@@ -78,7 +78,7 @@ typedef struct
     uint32_t lib_version; // the minimum bluetooth lib version allowed.
     uint32_t bin_size; // binary file size. to check if it can be fitted.
     uint8_t fw_hash[SHA256_DIGEST_SIZE];
-    uint8_t obj_signature[SHA256_DIGEST_SIZE];
+    uint8_t obj_signature[SIGNATURE_LEN];
 
 } CmdObject_t;
 
@@ -87,7 +87,6 @@ typedef struct
     uint32_t boot_app; // make it 32 bit just to be dword aligned.
     uint32_t app_version;
     uint32_t bl_version;
-    uint8_t hmac_key[SHA256_DIGEST_SIZE];
 } EEPROM_Data_t;
 
 
@@ -96,4 +95,4 @@ void OTA_Init();
 uint16_t Main_Task_ProcessEvent(uint8_t task_id, uint16_t events);
 
 
-#endif /* SRC_PERIPHERAL_H_ */
+#endif /* PERIPHERAL_H */
