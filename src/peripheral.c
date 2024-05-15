@@ -442,7 +442,7 @@ static bStatus_t OTA_PreValidateCmdObject(CmdObject_t* obj)
     bStatus_t result = OTA_RSP_SUCCESS;
     __attribute__((aligned(4))) uint8_t key[SIGNATURE_KEY_LEN];
     __attribute__((aligned(4))) EEPROM_Data_t data;
-    EEPROM_READ(EEPROM_DATA_ADDR, key, SIGNATURE_KEY_LEN);
+    EEPROM_READ(SIGNATURE_KEY_ADDR, key, SIGNATURE_KEY_LEN);
     EEPROM_READ(EEPROM_DATA_ADDR, &data, sizeof(EEPROM_Data_t));
     if(VerfiySignature((uint8_t*)obj, sizeof(CmdObject_t) - SIGNATURE_LEN, obj->obj_signature, key)) result = OTA_RSP_OP_FAILED;
     else if(obj->lib_version > *VER_LIB) result = OTA_RSP_OP_FAILED;
