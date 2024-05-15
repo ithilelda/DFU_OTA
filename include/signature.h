@@ -15,7 +15,7 @@
     #error "No signature algorithm defined!"
 #endif
 #define SIGNATURE_KEY_LEN         32
-#define SIGNATURE_KEY_ADDR        0x00078000 - FLASH_ROM_MAX_SIZE
+#define SIGNATURE_KEY_ADDR        0x00077F00 - FLASH_ROM_MAX_SIZE
 
 bStatus_t VerfiySignature(uint8_t *pData, uint8_t len, uint8_t *pSignature, uint8_t *pKey);
 
