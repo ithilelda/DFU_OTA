@@ -1,20 +1,10 @@
 {
     "files.associations": {
-        "hal.h": "c",
-        "peripheral.h": "c",
-        "config.h": "c",
-        "sleep.h": "c",
-        "rtc.h": "c",
-        "md5.h": "c",
-        "crypto.h": "c",
-        "cpu_endian.h": "c",
-        "os_port.h": "c",
-        "sha256.h": "c",
         "hmac.h": "c",
+        "sha256.h": "c",
+        "crypto.h": "c",
+        "os_port.h": "c",
         "hash_algorithms.h": "c",
-        "ecdsa.h": "c",
-        "ec.h": "c",
-        "ec_curves.h": "c",
-        "type_traits": "c"
+        "ed25519.h": "c"
     }
 }

@@ -5,8 +5,8 @@
  *      Author: huawe
  */
 
-#ifndef SRC_OTA_PROFILE_H_
-#define SRC_OTA_PROFILE_H_
+#ifndef OTA_PROFILE_H
+#define OTA_PROFILE_H
 
 #include "config.h"
 
@@ -148,4 +148,4 @@ void OTAProfile_RegisterWriteCharCBs(OTA_WriteCharCBs_t* cbs);
 void OTAProfile_SetupCtrlPointRsp(uint16_t connHandle, uint16_t attrHandle, uint8_t opcode, OTA_CtrlPointRsp_t* rsp, OtaRspCode_t rspCode);
 bStatus_t OTAProfile_DispatchCtrlPointRsp();
 
-#endif /* SRC_OTA_PROFILE_H_ */
+#endif /* OTA_PROFILE_H */

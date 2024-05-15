@@ -5,8 +5,8 @@
  *      Author: huawe
  */
 
-#ifndef SRC_CRC_H_
-#define SRC_CRC_H_
+#ifndef CRC_H
+#define CRC_H
 
 #include "config.h"
 
@@ -22,4 +22,4 @@
 uint32_t update_CRC32 (uint32_t crc32, void *pStart, uint32_t uSize);
 uint32_t calculate_CRC32 (void *pStart, uint32_t uSize);
 
-#endif /* SRC_CRC_H_ */
+#endif /* CRC_H */

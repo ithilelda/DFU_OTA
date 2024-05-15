@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 3.20)
 set(CMAKE_SYSTEM_NAME Generic)
 set(CMAKE_SYSTEM_PROCESSOR riscv)
 set(CMAKE_TRY_COMPILE_TARGET_TYPE STATIC_LIBRARY)
-set(CMAKE_C_STANDARD 99)
+set(CMAKE_C_STANDARD 11)
 set(CMAKE_CXX_STANDARD 17)
 
 # 编译器设置
@@ -71,6 +71,7 @@ file(GLOB_RECURSE SOURCES CONFIGURE_DEPENDS
   ${DEPENDENCY}/HAL/*.c
   ${CYCLONE}/cyclone_crypto/hash/*.c
   ${CYCLONE}/cyclone_crypto/mac/*.c
+  ${CYCLONE}/cyclone_crypto/ecc/*.c
 )
 target_sources(${PROJECT_NAME}.elf PRIVATE
   ${SOURCES}
@@ -83,6 +84,7 @@ target_link_libraries(${PROJECT_NAME}.elf ISP573 CH57xBLE)
 add_definitions(-DCH57xBLE_ROM=1) # BLE库分开编译
 add_definitions(-DBLE_BUFF_MAX_LEN=251) # 设置MTU最大值
 add_definitions(-DBOOTLOADER_VERSION=1) # 设置bootloader版本
+add_definitions(-DSIGNATURE_ED25519) # 设置签名算法
 
 #后处理文件设置
 set(HEX_FILE ${PROJECT_BINARY_DIR}/${PROJECT_NAME}.hex)

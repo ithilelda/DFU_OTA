@@ -1,7 +1,7 @@
-#ifndef SRC_OS_PORT_CONFIG_H_
-#define SRC_OS_PORT_CONFIG_H_
+#ifndef OS_PORT_CONFIG_H
+#define OS_PORT_CONFIG_H
 
 
 #define USE_NO_RTOS
 
-#endif /* SRC_OS_PORT_CONFIG_H_ */
+#endif /* OS_PORT_CONFIG_H */
