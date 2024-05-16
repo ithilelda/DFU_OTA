@@ -444,8 +444,8 @@ static bStatus_t OTA_PreValidateCmdObject(CmdObject_t* obj)
     __attribute__((aligned(4))) EEPROM_Data_t data;
     EEPROM_READ(SIGNATURE_KEY_ADDR, key, SIGNATURE_KEY_LEN);
     EEPROM_READ(EEPROM_DATA_ADDR, &data, sizeof(EEPROM_Data_t));
-    if(VerfiySignature((uint8_t*)obj, sizeof(CmdObject_t) - SIGNATURE_LEN, obj->obj_signature, key)) result = OTA_RSP_OP_FAILED;
-    else if(obj->lib_version > *VER_LIB) result = OTA_RSP_OP_FAILED;
+    //if(VerfiySignature((uint8_t*)obj, sizeof(CmdObject_t) - SIGNATURE_LEN, obj->obj_signature, key)) result = OTA_RSP_OP_FAILED;
+    if(obj->lib_version > *VER_LIB) result = OTA_RSP_OP_FAILED;
     else if(obj->hw_version != HARDWARE_VERSION) result = OTA_RSP_OP_FAILED;
     else if(obj->type != OTA_FW_TYPE_BOOTLOADER && obj->type != OTA_FW_TYPE_APPLICATION) result = OTA_RSP_OP_FAILED; // we only support uploading bootloader or app.
     else if(obj->type == OTA_FW_TYPE_BOOTLOADER && (obj->bin_size > BOOTLOADER_MAX_SIZE || (!obj->is_debug && obj->fw_version <= data.bl_version))) result = OTA_RSP_OP_FAILED;

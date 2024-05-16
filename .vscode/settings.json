@@ -5,6 +5,8 @@
         "crypto.h": "c",
         "os_port.h": "c",
         "hash_algorithms.h": "c",
-        "ed25519.h": "c"
+        "ed25519.h": "c",
+        "types.h": "c",
+        "settings.h": "c"
     }
 }
