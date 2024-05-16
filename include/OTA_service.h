@@ -5,15 +5,14 @@
  *      Author: huawe
  */
 
-#ifndef OTA_PROFILE_H
-#define OTA_PROFILE_H
+#ifndef OTA_SERVICE_H
+#define OTA_SERVICE_H
 
 #include "config.h"
 
 
 #define CTRL_POINT_BUFFER_SIZE              8
-#define OTAPROFILE_OTA_SERVICE              0x01
-#define OTAPROFILE_OTA_PROTOCOL_VER         0x00
+#define OTA_PROTOCOL_VER                    0x00
 
 /*********************************************************************
  * Service UUIDs.
@@ -143,9 +142,9 @@ typedef struct
 } OTA_WriteCharCBs_t;
 
 // public apis.
-bStatus_t OTAProfile_AddService(uint32_t services);
-void OTAProfile_RegisterWriteCharCBs(OTA_WriteCharCBs_t* cbs);
-void OTAProfile_SetupCtrlPointRsp(uint16_t connHandle, uint16_t attrHandle, uint8_t opcode, OTA_CtrlPointRsp_t* rsp, OtaRspCode_t rspCode);
-bStatus_t OTAProfile_DispatchCtrlPointRsp();
+bStatus_t OTA_AddService();
+void OTA_RegisterWriteCharCBs(OTA_WriteCharCBs_t* cbs);
+void OTA_SetupCtrlPointRsp(uint16_t connHandle, uint16_t attrHandle, uint8_t opcode, OTA_CtrlPointRsp_t* rsp, OtaRspCode_t rspCode);
+bStatus_t OTA_DispatchCtrlPointRsp();
 
-#endif /* OTA_PROFILE_H */
+#endif /* OTA_SERVICE_H */
