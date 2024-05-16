@@ -77,7 +77,7 @@ typedef struct
     uint32_t hw_version; // the hardware version. MUST match exactly.
     uint32_t lib_version; // the minimum bluetooth lib version allowed.
     uint32_t bin_size; // binary file size. to check if it can be fitted.
-    uint8_t fw_hash[SHA256_DIGEST_SIZE];
+    uint8_t fw_hash[32];
     uint8_t obj_signature[SIGNATURE_LEN];
 
 } CmdObject_t;

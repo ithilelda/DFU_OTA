@@ -1,4 +1,5 @@
 #include "signature.h"
+#include "libecc/libsig.h"
 
 
 /**
@@ -13,7 +14,8 @@
 bStatus_t VerfiySignature(uint8_t *pData, uint8_t len, uint8_t *pSignature, uint8_t *pKey)
 {
 #if defined SIGNATURE_ED25519
-    return ed25519VerifySignature(pKey, pData, len, NULL, 0, 0, pSignature);
+    ec_pub_key key;
+    return eddsa_import_pub_key(&key, pKey, SIGNATURE_KEY_LEN, NULL, EDDSA25519);
 #elif defined SIGNATURE_HMAC256
     uint8_t hmacBuffer[SHA256_DIGEST_SIZE];
     hmacCompute(SHA256_HASH_ALGO, pKey, SIGNATURE_KEY_LEN, pData, len, hmacBuffer);

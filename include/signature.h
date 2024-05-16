@@ -3,12 +3,9 @@
 
 
 #include "config.h"
-#include "ecc/ed25519.h"
-#include "hash/sha256.h"
-#include "mac/hmac.h"
 
 #if defined SIGNATURE_ED25519
-    #define SIGNATURE_LEN         ED25519_SIGNATURE_LEN
+    #define SIGNATURE_LEN         64
 #elif defined SIGNATURE_HMAC256
     #define SIGNATURE_LEN         SHA256_DIGEST_SIZE
 #else

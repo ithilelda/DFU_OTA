@@ -48,7 +48,7 @@ project(DFU_OTA LANGUAGES C CXX ASM)
 
 # 编译目标设置
 file(TO_CMAKE_PATH "$ENV{CH57X_DEPENDENCY}" DEPENDENCY)
-file(TO_CMAKE_PATH "$ENV{CYCLONE_DIR}" CYCLONE)
+file(TO_CMAKE_PATH "$ENV{LIBECC_DIR}" LIBECC)
 add_executable(${PROJECT_NAME}.elf)
 target_include_directories(${PROJECT_NAME}.elf PRIVATE
   ${CMAKE_SOURCE_DIR}/include
@@ -56,9 +56,7 @@ target_include_directories(${PROJECT_NAME}.elf PRIVATE
   ${DEPENDENCY}/StdPeriphDriver/inc
   ${DEPENDENCY}/HAL/include
   ${DEPENDENCY}/LIB
-  ${CYCLONE}/common
-  ${CYCLONE}/utils
-  ${CYCLONE}/cyclone_crypto
+  ${LIBECC}/include
 )
 target_link_directories(${PROJECT_NAME}.elf PRIVATE
   ${DEPENDENCY}/StdPeriphDriver
@@ -69,18 +67,23 @@ file(GLOB_RECURSE SOURCES CONFIGURE_DEPENDS
   ${DEPENDENCY}/RVMSIS/*.c
   ${DEPENDENCY}/StdPeriphDriver/*.c
   ${DEPENDENCY}/HAL/*.c
-  ${CYCLONE}/cyclone_crypto/hash/*.c
-  ${CYCLONE}/cyclone_crypto/mac/*.c
-  ${CYCLONE}/cyclone_crypto/ecc/*.c
+  ${LIBECC}/src/fp/*.c
+  ${LIBECC}/src/nn/*.c
+  ${LIBECC}/src/utils/*.c
+  ${LIBECC}/src/hash/*.c
+  ${LIBECC}/src/curves/*.c
+  ${LIBECC}/src/ecdh/*.c
+  ${LIBECC}/src/sig/*.c
 )
 target_sources(${PROJECT_NAME}.elf PRIVATE
   ${SOURCES}
-  ${CYCLONE}/common/cpu_endian.c
   Startup/startup_ch573.S
 )
 target_link_libraries(${PROJECT_NAME}.elf ISP573 CH57xBLE)
 
 # 用户宏定义
+add_definitions(-DWITH_STDLIB)
+
 add_definitions(-DCH57xBLE_ROM=1) # BLE库分开编译
 add_definitions(-DBLE_BUFF_MAX_LEN=251) # 设置MTU最大值
 add_definitions(-DBOOTLOADER_VERSION=1) # 设置bootloader版本
