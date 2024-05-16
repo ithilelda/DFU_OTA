@@ -1,23 +1,23 @@
 #include "HAL.h"
-#include "OTA_profile.h"
+#include "OTA_service.h"
 
 
 // OTA Service UUID.
-static const uint8_t OTAProfile_OTAServiceUUID[ATT_BT_UUID_SIZE] = {LO_UINT16(OTAPROFILE_OTA_SERV_UUID), HI_UINT16(OTAPROFILE_OTA_SERV_UUID)};
-static const gattAttrType_t OTAService = {ATT_BT_UUID_SIZE, OTAProfile_OTAServiceUUID};
+static const uint8_t OTA_ServiceUUID[ATT_BT_UUID_SIZE] = {LO_UINT16(OTA_SERV_UUID), HI_UINT16(OTA_SERV_UUID)};
+static const gattAttrType_t OTAService = {ATT_BT_UUID_SIZE, OTA_ServiceUUID};
 
 // OTA Characteristics.
-static const uint8_t OTAProfile_CtrlPointUUID[ATT_UUID_SIZE] = {CONSTRUCT_CHAR_UUID(OTAPROFILE_OTA_CTRL_POINT_UUID)};
-static uint8_t OTAProfile_CtrlPointProps = GATT_PROP_WRITE | GATT_PROP_NOTIFY;
-static uint8_t OTAProfile_CtrlPointValue;
-static uint8_t OTAProfile_CtrlPointUserDesp[18] = "DFU Control Point";
-static gattCharCfg_t OTAProfile_CtrlPointClientCharCfg[PERIPHERAL_MAX_CONNECTION];
+static const uint8_t OTA_CtrlPointUUID[ATT_UUID_SIZE] = {CONSTRUCT_CHAR_UUID(OTA_CTRL_POINT_UUID)};
+static uint8_t OTA_CtrlPointProps = GATT_PROP_WRITE | GATT_PROP_NOTIFY;
+static uint8_t OTA_CtrlPointValue;
+static uint8_t OTA_CtrlPointUserDesp[18] = "DFU Control Point";
+static gattCharCfg_t OTA_CtrlPointClientCharCfg[PERIPHERAL_MAX_CONNECTION];
 
-static const uint8_t OTAProfile_PacketUUID[ATT_UUID_SIZE] = {CONSTRUCT_CHAR_UUID(OTAPROFILE_OTA_PACKET_UUID)};
-static uint8_t OTAProfile_PacketProps = GATT_PROP_WRITE_NO_RSP | GATT_PROP_NOTIFY;
-static uint8_t OTAProfile_PacketValue;
-static uint8_t OTAProfile_PacketUserDesp[11] = "DFU Packet";
-static gattCharCfg_t OTAProfile_PacketClientCharCfg[PERIPHERAL_MAX_CONNECTION];
+static const uint8_t OTA_PacketUUID[ATT_UUID_SIZE] = {CONSTRUCT_CHAR_UUID(OTA_PACKET_UUID)};
+static uint8_t OTA_PacketProps = GATT_PROP_WRITE_NO_RSP | GATT_PROP_NOTIFY;
+static uint8_t OTA_PacketValue;
+static uint8_t OTA_PacketUserDesp[11] = "DFU Packet";
+static gattCharCfg_t OTA_PacketClientCharCfg[PERIPHERAL_MAX_CONNECTION];
 
 // Profile Attributes Table.
 static gattAttribute_t OTAServiceAttrTable[9] = {
@@ -34,15 +34,15 @@ static gattAttribute_t OTAServiceAttrTable[9] = {
         {ATT_BT_UUID_SIZE, characterUUID},
         GATT_PERMIT_READ,
         0,
-        &OTAProfile_CtrlPointProps
+        &OTA_CtrlPointProps
     },
 
     // Control Point Characteristic Value
     {
-        {ATT_UUID_SIZE, OTAProfile_CtrlPointUUID},
+        {ATT_UUID_SIZE, OTA_CtrlPointUUID},
         GATT_PERMIT_READ | GATT_PERMIT_WRITE,
         0,
-        &OTAProfile_CtrlPointValue
+        &OTA_CtrlPointValue
     },
 
     // Control Point Characteristic User Description
@@ -50,7 +50,7 @@ static gattAttribute_t OTAServiceAttrTable[9] = {
         {ATT_BT_UUID_SIZE, charUserDescUUID},
         GATT_PERMIT_READ,
         0,
-        OTAProfile_CtrlPointUserDesp
+        OTA_CtrlPointUserDesp
     },
 
     // Control Point Characteristic CCC
@@ -58,7 +58,7 @@ static gattAttribute_t OTAServiceAttrTable[9] = {
         {ATT_BT_UUID_SIZE, clientCharCfgUUID},
         GATT_PERMIT_READ | GATT_PERMIT_WRITE,
         0,
-        (uint8_t*)OTAProfile_CtrlPointClientCharCfg
+        (uint8_t*)OTA_CtrlPointClientCharCfg
     },
 
     // Packet Characteristic Declaration
@@ -66,15 +66,15 @@ static gattAttribute_t OTAServiceAttrTable[9] = {
         {ATT_BT_UUID_SIZE, characterUUID},
         GATT_PERMIT_READ,
         0,
-        &OTAProfile_PacketProps
+        &OTA_PacketProps
     },
 
     // Packet Characteristic Value
     {
-        {ATT_UUID_SIZE, OTAProfile_PacketUUID},
+        {ATT_UUID_SIZE, OTA_PacketUUID},
         GATT_PERMIT_READ | GATT_PERMIT_WRITE,
         0,
-        &OTAProfile_PacketValue
+        &OTA_PacketValue
     },
 
     // Packet Characteristic User Description
@@ -82,7 +82,7 @@ static gattAttribute_t OTAServiceAttrTable[9] = {
         {ATT_BT_UUID_SIZE, charUserDescUUID},
         GATT_PERMIT_READ,
         0,
-        OTAProfile_PacketUserDesp
+        OTA_PacketUserDesp
     },
 
     // Packet Characteristic CCC
@@ -90,30 +90,30 @@ static gattAttribute_t OTAServiceAttrTable[9] = {
         {ATT_BT_UUID_SIZE, clientCharCfgUUID},
         GATT_PERMIT_READ | GATT_PERMIT_WRITE,
         0,
-        (uint8_t*)OTAProfile_PacketClientCharCfg
+        (uint8_t*)OTA_PacketClientCharCfg
     },
 };
 
 // application callbacks.
-static OTA_WriteCharCBs_t* OTAProfile_WriteCharCBs;
-static bStatus_t OTAProfile_OTAService_WriteAttrCB(uint16_t connHandle, gattAttribute_t *pAttr, uint8_t *pValue, uint16_t len, uint16_t offset, uint8_t method)
+static OTA_WriteCharCBs_t* OTA_WriteCharCBs;
+static bStatus_t OTAService_WriteAttrCB(uint16_t connHandle, gattAttribute_t *pAttr, uint8_t *pValue, uint16_t len, uint16_t offset, uint8_t method)
 {
     bStatus_t status = ATT_ERR_ATTR_NOT_FOUND;
     if(pAttr->type.len == ATT_UUID_SIZE)
     {
-        if (tmos_memcmp(pAttr->type.uuid, OTAProfile_CtrlPointUUID, ATT_UUID_SIZE) == 1)
+        if (tmos_memcmp(pAttr->type.uuid, OTA_CtrlPointUUID, ATT_UUID_SIZE) == 1)
         {
-            if(OTAProfile_WriteCharCBs && OTAProfile_WriteCharCBs->ctrlPointCb)
+            if(OTA_WriteCharCBs && OTA_WriteCharCBs->ctrlPointCb)
             {
-                OTAProfile_WriteCharCBs->ctrlPointCb(connHandle, pAttr->handle, pValue, len);
+                OTA_WriteCharCBs->ctrlPointCb(connHandle, pAttr->handle, pValue, len);
             }
             status = SUCCESS;
         }
-        else if (tmos_memcmp(pAttr->type.uuid, OTAProfile_PacketUUID, ATT_UUID_SIZE) == 1)
+        else if (tmos_memcmp(pAttr->type.uuid, OTA_PacketUUID, ATT_UUID_SIZE) == 1)
         {
-            if(OTAProfile_WriteCharCBs && OTAProfile_WriteCharCBs->packetCb)
+            if(OTA_WriteCharCBs && OTA_WriteCharCBs->packetCb)
             {
-                OTAProfile_WriteCharCBs->packetCb(connHandle, pAttr->handle, pValue, len);
+                OTA_WriteCharCBs->packetCb(connHandle, pAttr->handle, pValue, len);
             }
             status = SUCCESS;
         }
@@ -137,41 +137,36 @@ static bStatus_t OTAProfile_OTAService_WriteAttrCB(uint16_t connHandle, gattAttr
 }
 static gattServiceCBs_t OTAServiceCBs = {
     NULL,  // Read callback function pointer
-    OTAProfile_OTAService_WriteAttrCB, // Write callback function pointer
+    OTAService_WriteAttrCB, // Write callback function pointer
     NULL                               // Authorization callback function pointer
 };
 
 /*********************************************************************
- * @fn      OTAProfile_AddService
+ * @fn      OTA_AddService
  *
- * @brief   OTA Profile初始化
+ * @brief   
  *
  * @param   services    - 服务控制字
  *
  * @return  初始化的状态
  */
-bStatus_t OTAProfile_AddService(uint32_t services)
+bStatus_t OTA_AddService()
 {
     uint8_t status = FAILURE;
-
-    if(services & OTAPROFILE_OTA_SERVICE)
-    {
-        // init CCC tables. the define name is invalid_handle, but it actually means all handle here. Wch follows TI convention.
-        GATTServApp_InitCharCfg(INVALID_CONNHANDLE, OTAProfile_CtrlPointClientCharCfg);
-        GATTServApp_InitCharCfg(INVALID_CONNHANDLE, OTAProfile_PacketClientCharCfg);
-        // Register GATT attribute list and CBs with GATT Server App
-        status = GATTServApp_RegisterService(OTAServiceAttrTable,
-                                             GATT_NUM_ATTRS(OTAServiceAttrTable),
-                                             GATT_MAX_ENCRYPT_KEY_SIZE,
-                                             &OTAServiceCBs);
-    }
-
+    // init CCC tables. the define name is invalid_handle, but it actually means all handle here. Wch follows TI convention.
+    GATTServApp_InitCharCfg(INVALID_CONNHANDLE, OTA_CtrlPointClientCharCfg);
+    GATTServApp_InitCharCfg(INVALID_CONNHANDLE, OTA_PacketClientCharCfg);
+    // Register GATT attribute list and CBs with GATT Server App
+    status = GATTServApp_RegisterService(OTAServiceAttrTable,
+                                            GATT_NUM_ATTRS(OTAServiceAttrTable),
+                                            GATT_MAX_ENCRYPT_KEY_SIZE,
+                                            &OTAServiceCBs);
     return (status);
 }
 
-void OTAProfile_RegisterWriteCharCBs(OTA_WriteCharCBs_t* cbs)
+void OTA_RegisterWriteCharCBs(OTA_WriteCharCBs_t* cbs)
 {
-    OTAProfile_WriteCharCBs = cbs;
+    OTA_WriteCharCBs = cbs;
 }
 
 
@@ -179,7 +174,7 @@ void OTAProfile_RegisterWriteCharCBs(OTA_WriteCharCBs_t* cbs)
 static uint16_t CtrlPoint_ConnHandle = 0;
 static attHandleValueNoti_t CtrlPoint_Noti;
 
-void OTAProfile_SetupCtrlPointRsp(uint16_t connHandle, uint16_t attrHandle, uint8_t opcode, OTA_CtrlPointRsp_t* rsp, OtaRspCode_t rspCode)
+void OTA_SetupCtrlPointRsp(uint16_t connHandle, uint16_t attrHandle, uint8_t opcode, OTA_CtrlPointRsp_t* rsp, OtaRspCode_t rspCode)
 {
     CtrlPoint_ConnHandle = connHandle;
     CtrlPoint_Noti.handle = attrHandle;
@@ -238,10 +233,10 @@ void OTAProfile_SetupCtrlPointRsp(uint16_t connHandle, uint16_t attrHandle, uint
     }
 }
 
-bStatus_t OTAProfile_DispatchCtrlPointRsp()
+bStatus_t OTA_DispatchCtrlPointRsp()
 {
     bStatus_t status = bleIncorrectMode;
-    if(GATTServApp_ReadCharCfg(CtrlPoint_ConnHandle, OTAProfile_CtrlPointClientCharCfg))
+    if(GATTServApp_ReadCharCfg(CtrlPoint_ConnHandle, OTA_CtrlPointClientCharCfg))
     {
         status = GATT_Notification(CtrlPoint_ConnHandle, &CtrlPoint_Noti, FALSE);
         if(status != SUCCESS)

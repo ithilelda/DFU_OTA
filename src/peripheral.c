@@ -9,7 +9,7 @@
 #include "config.h"
 #include "crc.h"
 #include "peripheral.h"
-#include "OTA_profile.h"
+#include "OTA_service.h"
 #include "signature.h"
 
 
@@ -41,7 +41,7 @@ static uint8_t advertData[31] = {
    // service uuid lists. usually, 16-bits uuids are reserved, so we use a 128-bits custom one. It is nicer to indicate here.
    0x3,
    GAP_ADTYPE_16BIT_MORE,
-   LO_UINT16(OTAPROFILE_OTA_SERV_UUID), HI_UINT16(OTAPROFILE_OTA_SERV_UUID)
+   LO_UINT16(OTA_SERV_UUID), HI_UINT16(OTA_SERV_UUID)
 };
 static uint8_t scanRspData[31] = {
     // complete name
@@ -97,8 +97,8 @@ void OTA_Init()
     GGS_AddService(GATT_ALL_SERVICES);         // GAP
     GATTServApp_AddService(GATT_ALL_SERVICES); // GATT attributes
 
-    OTAProfile_AddService(GATT_ALL_SERVICES);
-    OTAProfile_RegisterWriteCharCBs(&OTA_WriteCharCBs);
+    OTA_AddService();
+    OTA_RegisterWriteCharCBs(&OTA_WriteCharCBs);
 
     // start TMOS with the init event.
     tmos_set_event(Main_TaskID, MAIN_TASK_INIT_EVENT);
@@ -126,7 +126,7 @@ uint16_t Main_Task_ProcessEvent(uint8_t task_id, uint16_t events)
     }
     if (events & MAIN_TASK_WRITERSP_EVENT)
     {
-        OTAProfile_DispatchCtrlPointRsp();
+        OTA_DispatchCtrlPointRsp();
         return events ^ MAIN_TASK_WRITERSP_EVENT;
     }
     if (events & MAIN_TASK_RESET_EVENT)
@@ -242,7 +242,7 @@ static void OTA_CtrlPointCB(uint16_t connHandle, uint16_t attrHandle, uint8_t* p
         switch(opcode)
         {
             case OTA_CTRL_POINT_OPCODE_VERSION:
-                rsp.version.version = OTAPROFILE_OTA_PROTOCOL_VER;
+                rsp.version.version = OTA_PROTOCOL_VER;
                 rspCode = OTA_RSP_SUCCESS;
                 break;
             case OTA_CTRL_POINT_OPCODE_CREATE:
@@ -412,7 +412,7 @@ static void OTA_CtrlPointCB(uint16_t connHandle, uint16_t attrHandle, uint8_t* p
         }
     }
     
-    OTAProfile_SetupCtrlPointRsp(connHandle, attrHandle, opcode, &rsp, rspCode);
+    OTA_SetupCtrlPointRsp(connHandle, attrHandle, opcode, &rsp, rspCode);
     tmos_set_event(Main_TaskID, MAIN_TASK_WRITERSP_EVENT);
 }
 

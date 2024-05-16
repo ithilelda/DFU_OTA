@@ -5,26 +5,25 @@
  *      Author: huawe
  */
 
-#ifndef OTA_PROFILE_H
-#define OTA_PROFILE_H
+#ifndef OTA_SERVICE_H
+#define OTA_SERVICE_H
 
 #include "config.h"
 
 
 #define CTRL_POINT_BUFFER_SIZE              8
-#define OTAPROFILE_OTA_SERVICE              0x01
-#define OTAPROFILE_OTA_PROTOCOL_VER         0x00
+#define OTA_PROTOCOL_VER                    0x00
 
 /*********************************************************************
  * Service UUIDs.
  */
 // OTA service UUID.
 // I'm implementing Nordics protocol. So I follow their conventions.
-#define OTAPROFILE_OTA_SERV_UUID            0xFE59
+#define OTA_SERV_UUID                                0xFE59
 // Nordic DFU control point characteristic UUID: 8ec90001-f315-4f60-9fb8-838830daea50
-#define OTAPROFILE_OTA_CTRL_POINT_UUID      0x0001
+#define OTA_CTRL_POINT_UUID                          0x0001
 // Nordic DFU packet characteristic UUID: 8ec90002-f315-4f60-9fb8-838830daea50
-#define OTAPROFILE_OTA_PACKET_UUID          0x0002
+#define OTA_PACKET_UUID                              0x0002
 #define CONSTRUCT_CHAR_UUID(a) 0x50,0xea,0xda,0x30,0x88,0x83,0xb8,0x9f,0x60,0x4f,0x15,0xf3,LO_UINT16(a),HI_UINT16(a),0xc9,0x8e
 
 /*********************************************************************
@@ -143,9 +142,9 @@ typedef struct
 } OTA_WriteCharCBs_t;
 
 // public apis.
-bStatus_t OTAProfile_AddService(uint32_t services);
-void OTAProfile_RegisterWriteCharCBs(OTA_WriteCharCBs_t* cbs);
-void OTAProfile_SetupCtrlPointRsp(uint16_t connHandle, uint16_t attrHandle, uint8_t opcode, OTA_CtrlPointRsp_t* rsp, OtaRspCode_t rspCode);
-bStatus_t OTAProfile_DispatchCtrlPointRsp();
+bStatus_t OTA_AddService();
+void OTA_RegisterWriteCharCBs(OTA_WriteCharCBs_t* cbs);
+void OTA_SetupCtrlPointRsp(uint16_t connHandle, uint16_t attrHandle, uint8_t opcode, OTA_CtrlPointRsp_t* rsp, OtaRspCode_t rspCode);
+bStatus_t OTA_DispatchCtrlPointRsp();
 
-#endif /* OTA_PROFILE_H */
+#endif /* OTA_SERVICE_H */
