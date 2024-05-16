@@ -1,4 +1,5 @@
 #include "signature.h"
+#include <wolfssl/wolfcrypt/ed25519.h>
 
 
 /**
@@ -12,13 +13,16 @@
  */
 bStatus_t VerfiySignature(uint8_t *pData, uint8_t len, uint8_t *pSignature, uint8_t *pKey)
 {
+    int status = 1;
 #if defined SIGNATURE_ED25519
-    return ed25519VerifySignature(pKey, pData, len, NULL, 0, 0, pSignature);
+    ed25519_key key;
+    wc_ed25519_import_public(pKey, SIGNATURE_KEY_LEN, &key);
+    wc_ed25519_verify_msg(pSignature, SIGNATURE_LEN, pData, len, &status, &key);
 #elif defined SIGNATURE_HMAC256
     uint8_t hmacBuffer[SHA256_DIGEST_SIZE];
     hmacCompute(SHA256_HASH_ALGO, pKey, SIGNATURE_KEY_LEN, pData, len, hmacBuffer);
-    return !tmos_memcmp(hmacBuffer, pSignature, SHA256_DIGEST_SIZE);
+    status = !tmos_memcmp(hmacBuffer, pSignature, SHA256_DIGEST_SIZE);
 #else
-    return 1;
 #endif
+    return status;
 }

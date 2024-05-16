@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 3.20)
 set(CMAKE_SYSTEM_NAME Generic)
 set(CMAKE_SYSTEM_PROCESSOR riscv)
 set(CMAKE_TRY_COMPILE_TARGET_TYPE STATIC_LIBRARY)
-set(CMAKE_C_STANDARD 11)
+set(CMAKE_C_STANDARD 99)
 set(CMAKE_CXX_STANDARD 17)
 
 # 编译器设置
@@ -67,15 +67,26 @@ file(GLOB_RECURSE SOURCES CONFIGURE_DEPENDS
   ${DEPENDENCY}/RVMSIS/*.c
   ${DEPENDENCY}/StdPeriphDriver/*.c
   ${DEPENDENCY}/HAL/*.c
-  ${WOLFSSL}/wolfcrypt/src/*.c
 )
 target_sources(${PROJECT_NAME}.elf PRIVATE
   ${SOURCES}
   Startup/startup_ch573.S
+  ${WOLFSSL}/wolfcrypt/src/memory.c
+  ${WOLFSSL}/wolfcrypt/src/ge_low_mem.c
+  ${WOLFSSL}/wolfcrypt/src/ge_operations.c
+  ${WOLFSSL}/wolfcrypt/src/fe_operations.c
+  ${WOLFSSL}/wolfcrypt/src/misc.c
+  ${WOLFSSL}/wolfcrypt/src/curve25519.c
+  ${WOLFSSL}/wolfcrypt/src/ed25519.c
+  ${WOLFSSL}/wolfcrypt/src/sha512.c
 )
 target_link_libraries(${PROJECT_NAME}.elf ISP573 CH57xBLE)
 
 # 用户宏定义
+add_definitions(-DARDUINO)
+add_definitions(-DOTHERBOARD)
+add_definitions(-DWOLFSSL_USER_SETTINGS)
+
 add_definitions(-DCH57xBLE_ROM=1) # BLE库分开编译
 add_definitions(-DBLE_BUFF_MAX_LEN=251) # 设置MTU最大值
 add_definitions(-DBOOTLOADER_VERSION=1) # 设置bootloader版本

@@ -1,0 +1,25 @@
+#ifndef USER_SETTINGS_H
+#define USER_SETTINGS_H
+
+#include "config.h"
+#define SIZEOF_LONG_LONG 8
+
+#define WOLFSSL_HAVE_MIN
+#define WOLFSSL_HAVE_MAX
+#define SINGLE_THREADED
+#define NO_SHA
+#define NO_OLD_TLS
+#define NO_FILESYSTEM
+#define USE_FAST_MATH
+
+#define WC_NO_HARDEN
+#define NO_WOLFSSL_DIR
+#define WOLFSSL_STATIC_MEMORY
+#define WOLFSSL_SHA512
+#define HAVE_ED25519
+#define HAVE_ECC
+#define HAVE_CURVE25519
+#define CURVE25519_SMALL
+#define HAVE_ED25519
+
+#endif /* USER_SETTINGS_H */
