@@ -7,10 +7,12 @@
 #include "hash/sha256.h"
 #include "mac/hmac.h"
 
-#if defined SIGNATURE_ED25519
+#define SIG_ED25519 1
+#define SIG_HMAC256 2
+#if SIGNATURE_ALGO == SIG_ED25519
     #define SIGNATURE_LEN         ED25519_SIGNATURE_LEN
     #define SIGNATURE_KEY_LEN     ED25519_PUBLIC_KEY_LEN
-#elif defined SIGNATURE_HMAC256
+#elif SIGNATURE_ALGO == SIG_HMAC256
     #define SIGNATURE_LEN         SHA256_DIGEST_SIZE
     #define SIGNATURE_KEY_LEN     SHA256_DIGEST_SIZE
 #else
