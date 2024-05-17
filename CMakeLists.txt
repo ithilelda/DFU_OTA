@@ -87,7 +87,7 @@ target_link_libraries(${PROJECT_NAME}.elf ISP573 CH57xBLE)
 add_definitions(-DCH57xBLE_ROM=1) # BLE库分开编译
 add_definitions(-DBLE_BUFF_MAX_LEN=251) # 设置MTU最大值
 add_definitions(-DBOOTLOADER_VERSION=1) # 设置bootloader版本
-add_definitions(-DSIGNATURE_ED25519) # 设置签名算法
+add_definitions(-DSIGNATURE_ALGO=SIG_HMAC256) # 设置签名算法
 
 #后处理文件设置
 set(HEX_FILE ${PROJECT_BINARY_DIR}/${PROJECT_NAME}.hex)
