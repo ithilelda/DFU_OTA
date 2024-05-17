@@ -320,7 +320,7 @@ static void OTA_CtrlPointCB(uint16_t connHandle, uint16_t attrHandle, uint8_t* p
                             // raise the boot app flag.
                             EEPROM_WRITE(EEPROM_DATA_ADDR, &BOOTAPP, sizeof(uint32_t));
                             // dispatch a delayed reset.
-                            tmos_start_task(Main_TaskID, MAIN_TASK_RESET_EVENT, 100);
+                            tmos_start_task(Main_TaskID, MAIN_TASK_RESET_EVENT, 800); // half a second later.
                             rspCode = OTA_RSP_SUCCESS;
                         }
                         else
