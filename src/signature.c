@@ -24,7 +24,8 @@ bStatus_t VerifySignature(uint8_t *pData, uint8_t len, uint8_t *pSignature, uint
 #endif
 }
 
-Sha256Context hash_context;
+static Sha256Context hash_context;
+static uint8_t digest[SHA256_DIGEST_SIZE];
 void InitHash()
 {
     sha256Init(&hash_context);
@@ -41,7 +42,6 @@ void UpdateHash(const void *data, size_t length)
  */
 bStatus_t VerifyHash(const void *hash)
 {
-    uint8_t digest[SHA256_DIGEST_SIZE];
     sha256Final(&hash_context, digest);
     return !tmos_memcmp(digest, hash, SHA256_DIGEST_SIZE);
 }
