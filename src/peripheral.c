@@ -302,6 +302,7 @@ static void OTA_CtrlPointCB(uint16_t connHandle, uint16_t attrHandle, uint8_t* p
                 }
                 else if (OTA_CurrentObject == OTA_CONTROL_POINT_OBJ_TYPE_DATA)
                 {
+                    UpdateHash(OTA_ObjectBuffer, OTA_ObjectBufferOffset);
                     // the write to flash operation is executed here.
                     if(FLASH_ROM_WRITE(APPLICATION_START_ADDR+OTA_DataObjectOffset-OTA_ObjectBufferOffset, OTA_ObjectBuffer, OTA_ObjectBufferOffset))
                     {
@@ -311,13 +312,18 @@ static void OTA_CtrlPointCB(uint16_t connHandle, uint16_t attrHandle, uint8_t* p
                     {
                         rspCode = OTA_RSP_SUCCESS;
                     }
-                    if(OTA_DataObjectOffset == cmdObj.bin_size)
+                    // do post validation.
+                    if(OTA_DataObjectOffset == cmdObj.bin_size && VerifyHash(cmdObj.fw_hash) == SUCCESS)
                     {
-                        // do post validation.
                         // raise the boot app flag.
                         EEPROM_WRITE(EEPROM_DATA_ADDR, &BOOTAPP, sizeof(uint32_t));
                         // dispatch a delayed reset.
                         tmos_start_task(Main_TaskID, MAIN_TASK_RESET_EVENT, 100);
+                        rspCode = OTA_RSP_SUCCESS;
+                    }
+                    else
+                    {
+                        rspCode = OTA_RSP_OP_FAILED;
                     }
                 }
                 else
@@ -340,6 +346,7 @@ static void OTA_CtrlPointCB(uint16_t connHandle, uint16_t attrHandle, uint8_t* p
                     OTA_DataObjectCRC = CRC_INITIAL_VALUE;
                     rsp.select.crc = OTA_DataObjectCRC;
                     rsp.select.max_size = EEPROM_PAGE_SIZE;
+                    InitHash();
                     // we need to erase the corresponding flash region to prepare for the write.
                     if(FLASH_ROM_ERASE(APPLICATION_START_ADDR, APPLICATION_MAX_SIZE))
                     {
@@ -444,7 +451,7 @@ static bStatus_t OTA_PreValidateCmdObject(CmdObject_t* obj)
     __attribute__((aligned(4))) EEPROM_Data_t data;
     EEPROM_READ(SIGNATURE_KEY_ADDR, key, SIGNATURE_KEY_LEN);
     EEPROM_READ(EEPROM_DATA_ADDR, &data, sizeof(EEPROM_Data_t));
-    if(VerfiySignature((uint8_t*)obj, sizeof(CmdObject_t) - SIGNATURE_LEN, obj->obj_signature, key)) result = OTA_RSP_OP_FAILED;
+    if(VerifySignature((uint8_t*)obj, sizeof(CmdObject_t) - SIGNATURE_LEN, obj->obj_signature, key)) result = OTA_RSP_OP_FAILED;
     else if(obj->lib_version > *VER_LIB) result = OTA_RSP_OP_FAILED;
     else if(obj->hw_version != HARDWARE_VERSION) result = OTA_RSP_OP_FAILED;
     else if(obj->type != OTA_FW_TYPE_BOOTLOADER && obj->type != OTA_FW_TYPE_APPLICATION) result = OTA_RSP_OP_FAILED; // we only support uploading bootloader or app.

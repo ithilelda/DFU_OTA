@@ -10,6 +10,9 @@
         "ota_service.h": "c",
         "*.tcc": "c",
         "crypto_config.h": "c",
-        "os_port_none.h": "c"
+        "os_port_none.h": "c",
+        "aes.h": "c",
+        "cmac.h": "c",
+        "cipher_algorithms.h": "c"
     }
 }
