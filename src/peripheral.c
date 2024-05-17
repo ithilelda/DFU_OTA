@@ -10,6 +10,7 @@
 #include "crc.h"
 #include "peripheral.h"
 #include "OTA_service.h"
+#include "sig_service.h"
 #include "signature.h"
 
 
@@ -99,6 +100,8 @@ void OTA_Init()
 
     OTA_AddService();
     OTA_RegisterWriteCharCBs(&OTA_WriteCharCBs);
+
+    //SIG_AddService();
 
     // start TMOS with the init event.
     tmos_set_event(Main_TaskID, MAIN_TASK_INIT_EVENT);

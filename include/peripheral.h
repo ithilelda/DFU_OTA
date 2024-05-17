@@ -53,14 +53,14 @@
 #define MAIN_TASK_ADV_TIMEOUT 48000 // also in multiples of 625us. 1600 is 1 second, 4800 is 30 secs.
 
 // connection parameters.
-// Minimum connection interval (units of 1.25ms, 2=2.5ms) if automatic parameter update request is enabled
-#define DEFAULT_DESIRED_MIN_CONN_INTERVAL    2
+// Minimum connection interval (units of 1.25ms, 6=7.5ms) if automatic parameter update request is enabled
+#define DEFAULT_DESIRED_MIN_CONN_INTERVAL    6
 // Maximum connection interval (units of 1.25ms, 12=15ms) if automatic parameter update request is enabled
 #define DEFAULT_DESIRED_MAX_CONN_INTERVAL    12
 // Slave latency to use if automatic parameter update request is enabled
 #define DEFAULT_DESIRED_SLAVE_LATENCY        0
-// Supervision timeout value (units of 10ms, 500=5s) if automatic parameter update request is enabled
-#define DEFAULT_DESIRED_CONN_TIMEOUT         500
+// Supervision timeout value (units of 10ms, 1000=10s) if automatic parameter update request is enabled
+#define DEFAULT_DESIRED_CONN_TIMEOUT         1000
 // Whether to enable automatic parameter update request when a connection is formed
 #define DEFAULT_ENABLE_UPDATE_REQUEST        TRUE
 // Connection Pause Peripheral time value (in seconds)

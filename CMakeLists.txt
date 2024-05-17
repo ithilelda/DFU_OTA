@@ -69,6 +69,8 @@ file(GLOB_RECURSE SOURCES CONFIGURE_DEPENDS
   ${DEPENDENCY}/RVMSIS/*.c
   ${DEPENDENCY}/StdPeriphDriver/*.c
   ${DEPENDENCY}/HAL/*.c
+  ${CYCLONE}/cyclone_crypto/cipher/*.c
+  ${CYCLONE}/cyclone_crypto/rng/*.c
   ${CYCLONE}/cyclone_crypto/hash/*.c
   ${CYCLONE}/cyclone_crypto/mac/*.c
   ${CYCLONE}/cyclone_crypto/ecc/*.c
@@ -76,6 +78,7 @@ file(GLOB_RECURSE SOURCES CONFIGURE_DEPENDS
 target_sources(${PROJECT_NAME}.elf PRIVATE
   ${SOURCES}
   ${CYCLONE}/common/cpu_endian.c
+  ${CYCLONE}/common/os_port_none.c
   Startup/startup_ch573.S
 )
 target_link_libraries(${PROJECT_NAME}.elf ISP573 CH57xBLE)

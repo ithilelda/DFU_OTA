@@ -6,6 +6,10 @@
         "os_port.h": "c",
         "hash_algorithms.h": "c",
         "ed25519.h": "c",
-        "config.h": "c"
+        "config.h": "c",
+        "ota_service.h": "c",
+        "*.tcc": "c",
+        "crypto_config.h": "c",
+        "os_port_none.h": "c"
     }
 }
