@@ -28,11 +28,11 @@
 #define BOOTLOADER_VERSION           0x00000001
 #endif
 #define BOOTLOADER_START_ADDR        0x00000000
-#define BOOTLOADER_MAX_SIZE          0x00005000
+#define BOOTLOADER_MAX_SIZE          0x00004000
 
 // application info.
-#define APPLICATION_START_ADDR       0x00005000
-#define APPLICATION_MAX_SIZE         0x0000B000
+#define APPLICATION_START_ADDR       0x00004000
+#define APPLICATION_MAX_SIZE         0x0000C000
 
 // data storage info.
 #define EEPROM_DATA_ADDR             0x00077000 - FLASH_ROM_MAX_SIZE

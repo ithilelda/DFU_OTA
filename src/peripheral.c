@@ -321,6 +321,8 @@ static void OTA_CtrlPointCB(uint16_t connHandle, uint16_t attrHandle, uint8_t* p
                             EEPROM_WRITE(EEPROM_DATA_ADDR, &BOOTAPP, sizeof(uint32_t));
                             // dispatch a delayed reset.
                             tmos_start_task(Main_TaskID, MAIN_TASK_RESET_EVENT, 800); // half a second later.
+                            // terminate the link.
+                            GAPRole_TerminateLink(connHandle);
                             rspCode = OTA_RSP_SUCCESS;
                         }
                         else
